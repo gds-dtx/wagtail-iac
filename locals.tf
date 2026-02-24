@@ -32,7 +32,7 @@ locals {
       SMTP_PORT                    = "2525"
       SMTP_SECURE                  = "false"
       SMTP_TLS_REJECT_UNAUTHORIZED = "false"
-      DJANGO_SETTINGS_MODULE       = "govuk.settings.dev"
+      DJANGO_SETTINGS_MODULE       = var.django_settings_module
     }
   )
 }
