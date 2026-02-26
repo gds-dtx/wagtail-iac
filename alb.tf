@@ -73,10 +73,10 @@ resource "aws_lb_target_group" "alb_tg" {
     path                = "/api/"
     port                = "traffic-port" # use the port the container listens on
     protocol            = "HTTP"
-    interval            = 90
-    timeout             = 60
-    healthy_threshold   = 2
-    unhealthy_threshold = 4
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
     matcher             = "200-299" # adjust as needed
   }
 }
