@@ -8,7 +8,7 @@ resource "aws_lb_listener" "http" {
 
   protocol        = var.bootstrap_step >= 3 ? "HTTPS" : "HTTP"
   ssl_policy      = var.bootstrap_step >= 3 ? "ELBSecurityPolicy-TLS13-1-2-2021-06" : null
-  certificate_arn = var.bootstrap_step >= 3 ? aws_acm_certificate.wagtail_cert[0].arn : null
+  certificate_arn = var.bootstrap_step >= 3 ? aws_acm_certificate_validation.wagtail_cert[0].certificate_arn : null
 
   default_action {
     type = "fixed-response"

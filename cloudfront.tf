@@ -75,7 +75,7 @@ resource "aws_cloudfront_distribution" "this" {
 
   viewer_certificate {
     cloudfront_default_certificate = var.bootstrap_step >= 3 ? false : true
-    acm_certificate_arn            = var.bootstrap_step >= 3 ? aws_acm_certificate.cloudfront_cert[0].arn : null
+    acm_certificate_arn            = var.bootstrap_step >= 3 ? aws_acm_certificate_validation.cloudfront_cert[0].certificate_arn : null
     ssl_support_method             = var.bootstrap_step >= 3 ? "sni-only" : null
     minimum_protocol_version       = var.bootstrap_step >= 3 ? "TLSv1.2_2021" : null
   }

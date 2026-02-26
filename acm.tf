@@ -27,6 +27,13 @@ resource "aws_route53_record" "alb_validation" {
   zone_id         = data.aws_route53_zone.zone.zone_id
 }
 
+resource "aws_acm_certificate_validation" "wagtail_cert" {
+  count           = var.bootstrap_step >= 2 ? 1 : 0
+  certificate_arn = aws_acm_certificate.wagtail_cert[0].arn
+
+  validation_record_fqdns = [for record in aws_route53_record.alb_validation : record.fqdn]
+}
+
 ### --- CloudFront Certificate ---
 # This will need to be created in the us-east-1 region for CloudFront
 
@@ -58,4 +65,12 @@ resource "aws_route53_record" "cloudfront_validation" {
   ttl             = 60
   type            = each.value.type
   zone_id         = data.aws_route53_zone.zone.zone_id
+}
+
+resource "aws_acm_certificate_validation" "cloudfront_cert" {
+  count           = var.bootstrap_step >= 2 ? 1 : 0
+  certificate_arn = aws_acm_certificate.cloudfront_cert[0].arn
+  provider        = aws.us-east-1
+
+  validation_record_fqdns = [for record in aws_route53_record.cloudfront_validation : record.fqdn]
 }
