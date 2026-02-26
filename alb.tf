@@ -7,7 +7,7 @@ resource "aws_lb_listener" "http" {
   port              = var.port
 
   protocol        = var.bootstrap_step >= 3 ? "HTTPS" : "HTTP"
-  ssl_policy      = var.bootstrap_step >= 3 ? "ELBSecurityPolicy-TLS-1-2-2017-01" : null
+  ssl_policy      = var.bootstrap_step >= 3 ? "ELBSecurityPolicy-TLS13-1-2-2021-06" : null
   certificate_arn = var.bootstrap_step >= 3 ? aws_acm_certificate.wagtail_cert[0].arn : null
 
   default_action {
