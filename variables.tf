@@ -127,3 +127,21 @@ variable "sync_external_content_schedule" {
   type        = string
   default     = "cron(10 9,12,15,18 * * ? *)"
 }
+
+variable "db_engine_version" {
+  description = "The Aurora PostgreSQL engine version"
+  type        = string
+  default     = "15.10"
+}
+
+variable "db_backup_window" {
+  description = "The daily time range (UTC) during which automated backups are created, e.g. '01:00-01:30'"
+  type        = string
+  default     = "01:00-05:00"
+}
+
+variable "db_maintenance_window" {
+  description = "The weekly time range (UTC) during which cluster maintenance can occur, e.g. 'sun:02:00-sun:03:00'"
+  type        = string
+  default     = "sun:01:00-sun:05:00"
+}

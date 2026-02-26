@@ -100,8 +100,10 @@ resource "aws_rds_cluster" "db" {
   cluster_identifier              = "${local.task_name}-cluster-${random_password.sql_database_name.result}"
   engine                          = "aurora-postgresql"
   engine_mode                     = "provisioned"
-  engine_version                  = "15.10"
+  engine_version                  = var.db_engine_version
   backup_retention_period         = var.environment_name == "production" ? 14 : 2
+  preferred_backup_window         = var.db_backup_window
+  preferred_maintenance_window    = var.db_maintenance_window
   database_name                   = local.database_name
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.db.name
   master_username                 = local.database_username
