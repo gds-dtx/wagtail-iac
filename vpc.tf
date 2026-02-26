@@ -10,8 +10,8 @@ resource "aws_security_group" "ecs_service" {
 
   ingress {
     description     = "Allow HTTP from ALB"
-    from_port       = var.port
-    to_port         = var.port
+    from_port       = 8000
+    to_port         = 8000
     protocol        = "tcp"
     security_groups = [var.alb_security_group_id]
   }
