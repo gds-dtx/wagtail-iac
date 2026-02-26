@@ -128,6 +128,12 @@ variable "sync_external_content_schedule" {
   default     = "cron(10 9,12,15,18 * * ? *)"
 }
 
+variable "db_skip_final_snapshot" {
+  description = "Whether to skip the final snapshot when the RDS cluster is deleted. Should be false in production."
+  type        = bool
+  default     = false
+}
+
 variable "db_engine_version" {
   description = "The Aurora PostgreSQL engine version"
   type        = string

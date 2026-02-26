@@ -109,7 +109,8 @@ resource "aws_rds_cluster" "db" {
   master_username                 = local.database_username
   master_password                 = local.database_password
   deletion_protection             = (var.environment_name == "production")
-  skip_final_snapshot             = true
+  skip_final_snapshot             = var.db_skip_final_snapshot
+  final_snapshot_identifier       = var.db_skip_final_snapshot ? null : "${local.task_name}-final-snapshot"
   kms_key_id                      = aws_kms_key.db_enc.arn
   storage_encrypted               = true
   db_subnet_group_name            = aws_db_subnet_group.db.name
