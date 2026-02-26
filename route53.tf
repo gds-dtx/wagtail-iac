@@ -51,7 +51,7 @@ resource "aws_route53_record" "wagtail_a" {
 resource "aws_route53_record" "wagtail_aaaa" {
   # this is set in the providers block when calling this module
   provider = aws.dns-account
-  
+
   count = var.bootstrap_step >= 3 ? 1 : 0
 
   zone_id = data.aws_route53_zone.zone.zone_id
