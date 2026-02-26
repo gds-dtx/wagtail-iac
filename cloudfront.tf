@@ -2,10 +2,6 @@ data "aws_cloudfront_origin_request_policy" "origin" {
   name = "Managed-AllViewerAndCloudFrontHeaders-2022-06"
 }
 
-data "aws_cloudfront_cache_policy" "cache" {
-  name = "UseOriginCacheControlHeaders-QueryStrings"
-}
-
 data "aws_cloudfront_cache_policy" "disabled" {
   name = "Managed-CachingDisabled"
 }
@@ -51,10 +47,10 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
-  enabled             = true
-  is_ipv6_enabled     = true
-  comment             = var.wagtail_domain
-  http_version        = "http2and3"
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = var.wagtail_domain
+  http_version    = "http2and3"
 
   aliases = var.bootstrap_step >= 3 ? [var.wagtail_domain] : []
 
