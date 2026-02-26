@@ -11,6 +11,9 @@ resource "aws_acm_certificate" "wagtail_cert" {
 }
 
 resource "aws_route53_record" "alb_validation" {
+  # this is set in the providers block when calling this module
+  provider = aws.dns-account
+
   for_each = {
     for dvo in(var.bootstrap_step >= 2 ? aws_acm_certificate.wagtail_cert[0].domain_validation_options : []) : dvo.domain_name => {
       name   = dvo.resource_record_name
@@ -51,6 +54,9 @@ resource "aws_acm_certificate" "cloudfront_cert" {
 }
 
 resource "aws_route53_record" "cloudfront_validation" {
+  # this is set in the providers block when calling this module
+  provider = aws.dns-account
+
   for_each = {
     for dvo in(var.bootstrap_step >= 2 ? aws_acm_certificate.cloudfront_cert[0].domain_validation_options : []) : dvo.domain_name => {
       name   = dvo.resource_record_name
