@@ -60,6 +60,14 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
           "name" : "OIDC_CLIENT_SECRET",
           "valueFrom" : data.aws_ssm_parameter.wagtail-oidc-secret[0].arn
         },
+        {
+          "name" : "DATABASE_PASSWORD",
+          "valueFrom" : aws_secretsmanager_secret.db_password.arn
+        },
+        {
+          "name" : "SECRET_KEY",
+          "valueFrom" : aws_secretsmanager_secret.secret_key.arn
+        },
       ]
 
       logConfiguration = {

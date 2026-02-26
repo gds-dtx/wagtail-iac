@@ -44,6 +44,20 @@ resource "random_password" "sql_master_password" {
   }
 }
 
+resource "aws_secretsmanager_secret" "db_password" {
+  name        = "${local.ssm_key_prefix}/db_password"
+  description = "RDS master password for ${local.task_name}"
+}
+
+resource "aws_secretsmanager_secret_version" "db_password" {
+  secret_id     = aws_secretsmanager_secret.db_password.id
+  secret_string = local.database_password
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
 resource "aws_kms_key" "db_enc" {
   description             = "${local.task_name} KMS key"
   deletion_window_in_days = 10

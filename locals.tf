@@ -19,9 +19,7 @@ locals {
       BASE_URL                     = "https://${var.wagtail_domain}"
       DATABASE_NAME                = local.database_name
       DATABASE_USER                = local.database_username
-      DATABASE_PASSWORD            = local.database_password
       DATABASE_HOST                = aws_rds_cluster.db.endpoint
-      SECRET_KEY                   = random_password.wagtail-secret-key.result
       LOG_LEVEL                    = var.log_level
       TRUST_PROXY                  = "true"
       TOKEN_EXPIRES_IN             = tostring(var.token_expires_in)
@@ -33,6 +31,20 @@ locals {
       DJANGO_SETTINGS_MODULE       = var.django_settings_module
     }
   )
+}
+
+resource "aws_secretsmanager_secret" "secret_key" {
+  name        = "${local.ssm_key_prefix}/secret_key"
+  description = "Django SECRET_KEY for ${local.task_name}"
+}
+
+resource "aws_secretsmanager_secret_version" "secret_key" {
+  secret_id     = aws_secretsmanager_secret.secret_key.id
+  secret_string = random_password.wagtail-secret-key.result
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 resource "random_password" "wagtail-secret-key" {

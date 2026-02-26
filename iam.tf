@@ -98,6 +98,16 @@ resource "aws_iam_role_policy" "ecs_exec_custom" {
           data.aws_ssm_parameter.wagtail-notify-api-key[0].arn,
           data.aws_ssm_parameter.wagtail-notify-template-id[0].arn
         ]
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = [
+          aws_secretsmanager_secret.db_password.arn,
+          aws_secretsmanager_secret.secret_key.arn,
+        ]
       }
     ]
   })
