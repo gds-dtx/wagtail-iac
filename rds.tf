@@ -44,13 +44,27 @@ resource "random_password" "sql_master_password" {
   }
 }
 
+resource "aws_secretsmanager_secret" "db_password" {
+  name        = "${local.ssm_key_prefix}/db_password"
+  description = "RDS master password for ${local.task_name}"
+}
+
+resource "aws_secretsmanager_secret_version" "db_password" {
+  secret_id     = aws_secretsmanager_secret.db_password.id
+  secret_string = local.database_password
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
 resource "aws_kms_key" "db_enc" {
   description             = "${local.task_name} KMS key"
   deletion_window_in_days = 10
 }
 
-resource "aws_security_group" "rds_lambda" {
-  name        = "${local.task_name}-rds-lambda-inbound"
+resource "aws_security_group" "rds" {
+  name        = "${local.task_name}-rds"
   description = "Allow RDS inbound traffic from ECS"
   vpc_id      = data.aws_vpc.vpc.id
 
@@ -63,7 +77,7 @@ resource "aws_security_group" "rds_lambda" {
   }
 
   tags = {
-    Name = "${local.task_name}-rds-inbound"
+    Name = "${local.task_name}-rds"
   }
 }
 
@@ -86,19 +100,22 @@ resource "aws_rds_cluster" "db" {
   cluster_identifier              = "${local.task_name}-cluster-${random_password.sql_database_name.result}"
   engine                          = "aurora-postgresql"
   engine_mode                     = "provisioned"
-  engine_version                  = "15.10"
+  engine_version                  = var.db_engine_version
   backup_retention_period         = var.environment_name == "production" ? 14 : 2
+  preferred_backup_window         = var.db_backup_window
+  preferred_maintenance_window    = var.db_maintenance_window
   database_name                   = local.database_name
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.db.name
   master_username                 = local.database_username
   master_password                 = local.database_password
   deletion_protection             = (var.environment_name == "production")
-  skip_final_snapshot             = true
+  skip_final_snapshot             = var.db_skip_final_snapshot
+  final_snapshot_identifier       = var.db_skip_final_snapshot ? null : "${local.task_name}-final-snapshot"
   kms_key_id                      = aws_kms_key.db_enc.arn
   storage_encrypted               = true
   db_subnet_group_name            = aws_db_subnet_group.db.name
   vpc_security_group_ids = [
-    aws_security_group.rds_lambda.id
+    aws_security_group.rds.id
   ]
 
   serverlessv2_scaling_configuration {

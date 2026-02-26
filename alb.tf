@@ -7,8 +7,8 @@ resource "aws_lb_listener" "http" {
   port              = var.port
 
   protocol        = var.bootstrap_step >= 3 ? "HTTPS" : "HTTP"
-  ssl_policy      = var.bootstrap_step >= 3 ? "ELBSecurityPolicy-TLS-1-2-2017-01" : null
-  certificate_arn = var.bootstrap_step >= 3 ? aws_acm_certificate.wagtail_cert[0].arn : null
+  ssl_policy      = var.bootstrap_step >= 3 ? "ELBSecurityPolicy-TLS13-1-2-2021-06" : null
+  certificate_arn = var.bootstrap_step >= 3 ? aws_acm_certificate_validation.wagtail_cert[0].certificate_arn : null
 
   default_action {
     type = "fixed-response"
@@ -73,10 +73,10 @@ resource "aws_lb_target_group" "alb_tg" {
     path                = "/api/"
     port                = "traffic-port" # use the port the container listens on
     protocol            = "HTTP"
-    interval            = 90
-    timeout             = 60
-    healthy_threshold   = 2
-    unhealthy_threshold = 4
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
     matcher             = "200-299" # adjust as needed
   }
 }

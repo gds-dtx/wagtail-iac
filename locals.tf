@@ -1,5 +1,5 @@
 locals {
-  task_name          = "wagtail-${var.wagtail_instance_id}"
+  task_name = "wagtail-${var.wagtail_instance_id}"
 
   ssm_key_prefix         = "/wagtail/${var.environment_name}/${var.wagtail_instance_id}"
   ssm_admin_password     = "${local.ssm_key_prefix}/admin_password"
@@ -12,8 +12,6 @@ locals {
   database_username = sensitive(random_password.sql_master_username.result)
   database_password = sensitive(random_password.sql_master_password.result)
   database_name     = sensitive("db${random_password.sql_database_name.result}")
-  connection_string = sensitive("postgresql://${local.database_username}:${local.database_password}@${aws_rds_cluster.db.endpoint}/${local.database_name}")
-
   wagtail_variables = merge(
     var.wagtail_variables,
     {
@@ -21,9 +19,7 @@ locals {
       BASE_URL                     = "https://${var.wagtail_domain}"
       DATABASE_NAME                = local.database_name
       DATABASE_USER                = local.database_username
-      DATABASE_PASSWORD            = local.database_password
       DATABASE_HOST                = aws_rds_cluster.db.endpoint
-      SECRET_KEY                   = random_password.wagtail-secret-key.result
       LOG_LEVEL                    = var.log_level
       TRUST_PROXY                  = "true"
       TOKEN_EXPIRES_IN             = tostring(var.token_expires_in)
@@ -35,6 +31,20 @@ locals {
       DJANGO_SETTINGS_MODULE       = var.django_settings_module
     }
   )
+}
+
+resource "aws_secretsmanager_secret" "secret_key" {
+  name        = "${local.ssm_key_prefix}/secret_key"
+  description = "Django SECRET_KEY for ${local.task_name}"
+}
+
+resource "aws_secretsmanager_secret_version" "secret_key" {
+  secret_id     = aws_secretsmanager_secret.secret_key.id
+  secret_string = random_password.wagtail-secret-key.result
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 resource "random_password" "wagtail-secret-key" {

@@ -9,10 +9,10 @@ resource "aws_security_group" "ecs_service" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "Allow traffic from ALB"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
+    description     = "Allow HTTP from ALB"
+    from_port       = var.port
+    to_port         = var.port
+    protocol        = "tcp"
     security_groups = [var.alb_security_group_id]
   }
 

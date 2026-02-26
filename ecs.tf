@@ -1,3 +1,5 @@
+data "aws_region" "current" {}
+
 data "aws_ecs_cluster" "ecs_cluster" {
   cluster_name = var.cluster_name
 }
@@ -38,12 +40,6 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
         }
       ]
 
-      #linuxParameters = {
-      #  capabilities = {
-      #    add = ["SYS_PTRACE"]
-      #  }
-      #}
-
       environment = [
         for k, v in local.wagtail_variables : {
           name  = k
@@ -60,6 +56,14 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
           "name" : "OIDC_CLIENT_SECRET",
           "valueFrom" : data.aws_ssm_parameter.wagtail-oidc-secret[0].arn
         },
+        {
+          "name" : "DATABASE_PASSWORD",
+          "valueFrom" : aws_secretsmanager_secret.db_password.arn
+        },
+        {
+          "name" : "SECRET_KEY",
+          "valueFrom" : aws_secretsmanager_secret.secret_key.arn
+        },
       ]
 
       logConfiguration = {
@@ -67,7 +71,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
         options = {
           awslogs-create-group  = "true" # creates log group if it doesn't exist
           awslogs-group         = aws_cloudwatch_log_group.wagtail.name
-          awslogs-region        = "eu-west-2"
+          awslogs-region        = data.aws_region.current.name
           awslogs-stream-prefix = "ecs" # shows up as task_name/<container>/<task-id>
         }
       }
@@ -80,37 +84,6 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
         }
       ]
     }
-    #{
-    #  name  = "${local.task_name}-smtp"
-    #  image = "ghcr.io/govuk-digital-backbone/govuk-notify-smtp-relay:latest"
-    #  portMappings = [
-    #    {
-    #      containerPort = 2525
-    #      hostPort      = 2525
-    #    }
-    #  ]
-    #
-    #  logConfiguration = {
-    #    logDriver = "awslogs"
-    #    options = {
-    #      awslogs-create-group  = "true" # creates log group if it doesn't exist
-    #      awslogs-group         = aws_cloudwatch_log_group.smtp.name
-    #      awslogs-region        = "eu-west-2"
-    #      awslogs-stream-prefix = "ecs" # shows up as task_name/<container>/<task-id>
-    #    }
-    #  }
-    #
-    #  "secrets" : [
-    #    {
-    #      "name" : "NOTIFY_API_KEY",
-    #      "valueFrom" : data.aws_ssm_parameter.wagtail-notify-api-key[0].arn
-    #    },
-    #    {
-    #      "name" : "NOTIFY_TEMPLATE_ID",
-    #      "valueFrom" : data.aws_ssm_parameter.wagtail-notify-template-id[0].arn
-    #    }
-    #  ]
-    #}
   ])
 }
 
@@ -129,7 +102,6 @@ resource "aws_ecs_service" "ecs_service" {
   network_configuration {
     subnets         = data.aws_subnets.private_subnets.ids
     security_groups = [aws_security_group.ecs_service.id]
-    # assign_public_ip = true
   }
 
   load_balancer {

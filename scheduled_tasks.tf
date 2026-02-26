@@ -26,8 +26,8 @@ resource "aws_iam_role_policy" "ecs_events_run_task" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["ecs:RunTask"]
+        Effect   = "Allow"
+        Action   = ["ecs:RunTask"]
         Resource = aws_ecs_task_definition.ecs_task_definition[0].arn
         Condition = {
           ArnLike = {
@@ -68,8 +68,8 @@ resource "aws_cloudwatch_event_target" "sync_external_content" {
     task_definition_arn = aws_ecs_task_definition.ecs_task_definition[0].arn
 
     network_configuration {
-      subnets         = data.aws_subnets.private_subnets.ids
-      security_groups = [aws_security_group.ecs_service.id]
+      subnets          = data.aws_subnets.private_subnets.ids
+      security_groups  = [aws_security_group.ecs_service.id]
       assign_public_ip = false
     }
   }
