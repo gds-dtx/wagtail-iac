@@ -143,11 +143,11 @@ variable "db_engine_version" {
 variable "db_backup_window" {
   description = "The daily time range (UTC) during which automated backups are created, e.g. '01:00-01:30'"
   type        = string
-  default     = "01:00-05:00"
+  default     = "01:00-03:00"
 }
 
 variable "db_maintenance_window" {
   description = "The weekly time range (UTC) during which cluster maintenance can occur, e.g. 'sun:02:00-sun:03:00'"
   type        = string
-  default     = "sun:01:00-sun:05:00"
+  default     = "sun:03:10-sun:06:00"
 }
