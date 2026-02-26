@@ -79,6 +79,10 @@ resource "aws_security_group" "rds" {
   tags = {
     Name = "${local.task_name}-rds"
   }
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_rds_cluster_parameter_group" "db" {
