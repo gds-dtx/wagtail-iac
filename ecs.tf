@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
         options = {
           awslogs-create-group  = "true" # creates log group if it doesn't exist
           awslogs-group         = aws_cloudwatch_log_group.wagtail.name
-          awslogs-region        = data.aws_region.current.name
+          awslogs-region        = data.aws_region.current.region
           awslogs-stream-prefix = "ecs" # shows up as task_name/<container>/<task-id>
         }
       }
