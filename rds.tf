@@ -63,8 +63,8 @@ resource "aws_kms_key" "db_enc" {
   deletion_window_in_days = 10
 }
 
-resource "aws_security_group" "rds_lambda" {
-  name        = "${local.task_name}-rds-lambda-inbound"
+resource "aws_security_group" "rds" {
+  name        = "${local.task_name}-rds"
   description = "Allow RDS inbound traffic from ECS"
   vpc_id      = data.aws_vpc.vpc.id
 
@@ -77,7 +77,7 @@ resource "aws_security_group" "rds_lambda" {
   }
 
   tags = {
-    Name = "${local.task_name}-rds-inbound"
+    Name = "${local.task_name}-rds"
   }
 }
 
@@ -114,7 +114,7 @@ resource "aws_rds_cluster" "db" {
   storage_encrypted               = true
   db_subnet_group_name            = aws_db_subnet_group.db.name
   vpc_security_group_ids = [
-    aws_security_group.rds_lambda.id
+    aws_security_group.rds.id
   ]
 
   serverlessv2_scaling_configuration {
