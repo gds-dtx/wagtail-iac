@@ -113,7 +113,7 @@ variable "route53_zone_id" {
 variable "create_ssm_parameters" {
   description = "Flag to enable creation of SSM parameters"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_execute_command" {
