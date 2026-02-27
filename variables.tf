@@ -110,6 +110,12 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "create_ssm_parameters" {
+  description = "Flag to enable creation of SSM parameters"
+  type        = bool
+  default     = false
+}
+
 variable "enable_execute_command" {
   description = "Flag to enable ECS execute command feature"
   type        = bool

@@ -1,11 +1,8 @@
 locals {
   task_name = "wagtail-${var.wagtail_instance_id}"
 
-  ssm_key_prefix         = "/wagtail/${var.environment_name}/${var.wagtail_instance_id}"
-  ssm_admin_password     = "${local.ssm_key_prefix}/admin_password"
-  ssm_oidc_secret        = "${local.ssm_key_prefix}/oidc_secret"
-  ssm_notify_api_key     = "/wagtail/${var.environment_name}/notify_api_key"
-  ssm_notify_template_id = "/wagtail/${var.environment_name}/notify_template_id"
+  ssm_key_prefix  = "/wagtail/${var.environment_name}/${var.wagtail_instance_id}"
+  ssm_oidc_secret = "${local.ssm_key_prefix}/oidc_secret"
 
   log_retention_days = var.environment_name == "production" ? 365 : 14
 
