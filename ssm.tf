@@ -3,6 +3,10 @@ resource "aws_ssm_parameter" "wagtail-oidc-secret" {
   name  = local.ssm_oidc_secret
   type  = "SecureString"
   value = "NotSet"
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 data "aws_ssm_parameter" "wagtail-oidc-secret" {
