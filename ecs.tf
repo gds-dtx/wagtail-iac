@@ -49,10 +49,6 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
 
       "secrets" : [
         {
-          "name" : "DEFAULT_ADMIN_PASSWORD",
-          "valueFrom" : data.aws_ssm_parameter.wagtail-admin-password[0].arn
-        },
-        {
           "name" : "OIDC_CLIENT_SECRET",
           "valueFrom" : data.aws_ssm_parameter.wagtail-oidc-secret[0].arn
         },
