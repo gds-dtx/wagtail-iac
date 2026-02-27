@@ -5,7 +5,7 @@ resource "aws_ssm_parameter" "wagtail-oidc-secret" {
   value = "NotSet"
 
   lifecycle {
-    ignore_changes = [secret_string]
+    ignore_changes = [value]
   }
 }
 
