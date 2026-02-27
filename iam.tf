@@ -93,10 +93,7 @@ resource "aws_iam_role_policy" "ecs_exec_custom" {
           "ssm:GetParameters"
         ],
         Resource = [
-          data.aws_ssm_parameter.wagtail-admin-password[0].arn,
-          data.aws_ssm_parameter.wagtail-oidc-secret[0].arn,
-          data.aws_ssm_parameter.wagtail-notify-api-key[0].arn,
-          data.aws_ssm_parameter.wagtail-notify-template-id[0].arn
+          data.aws_ssm_parameter.wagtail-oidc-secret[0].arn
         ]
       },
       {
