@@ -41,6 +41,8 @@ resource "aws_route53_record" "wagtail_a" {
   name    = var.wagtail_domain
   type    = "A"
 
+  allow_overwrite = true
+
   alias {
     name                   = aws_cloudfront_distribution.this[0].domain_name
     zone_id                = aws_cloudfront_distribution.this[0].hosted_zone_id
@@ -57,6 +59,8 @@ resource "aws_route53_record" "wagtail_aaaa" {
   zone_id = data.aws_route53_zone.zone.zone_id
   name    = var.wagtail_domain
   type    = "AAAA"
+
+  allow_overwrite = true
 
   alias {
     name                   = aws_cloudfront_distribution.this[0].domain_name
