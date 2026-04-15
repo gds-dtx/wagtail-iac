@@ -4,7 +4,13 @@ locals {
   ssm_key_prefix  = "/wagtail/${var.environment_name}/${var.wagtail_instance_id}"
   ssm_oidc_secret = "${local.ssm_key_prefix}/oidc_secret"
 
-  log_retention_days = var.environment_name == "production" ? 365 : 14
+  wagtail_log_retention_days    = var.environment_name == "production" ? 365 : 14
+  cloudfront_log_retention_days = var.environment_name == "production" ? 740 : 14
+
+  enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
+  cloudfront_access_logs_log_group_name            = "${local.task_name}-cf-access-logs"
+  cloudfront_access_logs_delivery_source_name      = substr("${local.task_name}-cf-logs-src", 0, 60)
+  cloudfront_access_logs_delivery_destination_name = substr("${local.task_name}-cf-logs-dst", 0, 60)
 
   database_username = sensitive(random_password.sql_master_username.result)
   database_password = sensitive(random_password.sql_master_password.result)

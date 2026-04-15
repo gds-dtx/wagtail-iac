@@ -84,3 +84,50 @@ resource "aws_cloudfront_distribution" "this" {
     Name = "${local.task_name}-cloudfront-distribution"
   }
 }
+
+# CloudFront standard logging v2 to CloudWatch Logs is anchored in us-east-1.
+resource "aws_cloudwatch_log_delivery_source" "cloudfront_access" {
+  count    = local.enable_cloudfront_access_log_delivery ? 1 : 0
+  provider = aws.us-east-1
+
+  name         = local.cloudfront_access_logs_delivery_source_name
+  log_type     = "ACCESS_LOGS"
+  resource_arn = aws_cloudfront_distribution.this[0].arn
+
+  tags = {
+    Name = local.cloudfront_access_logs_delivery_source_name
+  }
+}
+
+resource "aws_cloudwatch_log_delivery_destination" "cloudfront_access" {
+  count    = local.enable_cloudfront_access_log_delivery ? 1 : 0
+  provider = aws.us-east-1
+
+  name          = local.cloudfront_access_logs_delivery_destination_name
+  output_format = "json"
+
+  delivery_destination_configuration {
+    destination_resource_arn = aws_cloudwatch_log_group.cloudfront_access[0].arn
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.cloudfront_access
+  ]
+
+  tags = {
+    Name = local.cloudfront_access_logs_delivery_destination_name
+  }
+}
+
+resource "aws_cloudwatch_log_delivery" "cloudfront_access" {
+  count    = local.enable_cloudfront_access_log_delivery ? 1 : 0
+  provider = aws.us-east-1
+
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.cloudfront_access[0].name
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.cloudfront_access[0].arn
+  record_fields            = var.cloudfront_access_log_record_fields
+
+  tags = {
+    Name = local.cloudfront_access_logs_delivery_destination_name
+  }
+}
