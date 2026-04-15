@@ -51,6 +51,7 @@ resource "aws_cloudfront_distribution" "this" {
   is_ipv6_enabled = true
   comment         = var.wagtail_domain
   http_version    = "http2and3"
+  web_acl_id      = local.enable_cloudfront_waf ? aws_wafv2_web_acl.cloudfront[0].arn : null
 
   aliases = var.bootstrap_step >= 3 ? [var.wagtail_domain] : []
 

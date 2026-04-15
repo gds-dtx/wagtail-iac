@@ -22,6 +22,7 @@ Terraform module for deploying a Wagtail application on ECS Fargate behind Cloud
 - Secrets Manager secrets for DB password and Django secret key
 - CloudWatch log group
 - Route53 records, ACM certificates, and CloudFront distribution
+- Optional AWS WAF web ACL for CloudFront
 - Scheduled EventBridge task for `sync_external_content` (optional)
 
 ## Prerequisites
@@ -80,6 +81,8 @@ module "wagtail_iac" {
   route53_zone_id = "" # Optional: existing hosted zone ID; empty means create zone at bootstrap step 1
 
   enable_execute_command = false # Enable ECS Exec on service tasks
+  enable_cloudfront_waf  = false # Enable AWS WAF on the CloudFront distribution
+  waf_monitor_mode       = true  # Count-only mode; set false to enforce managed rule actions
 
   enable_sync_external_content   = true                          # Enable scheduled sync task
   sync_external_content_schedule = "cron(10 9,12,15,18 * * ? *)" # EventBridge schedule expression
@@ -96,6 +99,11 @@ module "wagtail_iac" {
 1. `bootstrap_step = 1`: creates/uses Route53 zone, creates `alb.<domain>` CNAME, creates CloudFront with default cert.
 2. `bootstrap_step = 2`: provisions ACM certs and validation, ECS task/service, IAM execution policy, and optional scheduled task.
 3. `bootstrap_step = 3`: enables custom TLS on ALB + CloudFront alias, and creates apex `A`/`AAAA` records for `<domain>`.
+
+## Optional WAF
+
+- `enable_cloudfront_waf`: creates a CloudFront-scope web ACL with AWS managed rule groups and associates it with the distribution.
+- `waf_monitor_mode = true`: runs the managed rule groups in `count` mode so you can observe matches before enforcing. Set it to `false` to let the managed rule actions block requests.
 
 ## Outputs
 

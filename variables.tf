@@ -128,6 +128,18 @@ variable "enable_cloudfront_access_logs" {
   default     = false
 }
 
+variable "enable_cloudfront_waf" {
+  description = "Flag to enable an AWS WAF web ACL on the CloudFront distribution"
+  type        = bool
+  default     = false
+}
+
+variable "waf_monitor_mode" {
+  description = "When true, WAF managed rules run in count mode so requests are monitored but not blocked"
+  type        = bool
+  default     = true
+}
+
 variable "cloudfront_access_log_record_fields" {
   description = "CloudFront standard logging v2 fields to include in delivered access logs"
   type        = list(string)
