@@ -122,6 +122,66 @@ variable "enable_execute_command" {
   default     = false
 }
 
+variable "enable_cloudfront_access_logs" {
+  description = "Flag to enable CloudFront standard access logs delivery to a dedicated CloudWatch log group"
+  type        = bool
+  default     = false
+}
+
+variable "enable_cloudfront_waf" {
+  description = "Flag to enable an AWS WAF web ACL on the CloudFront distribution"
+  type        = bool
+  default     = false
+}
+
+variable "waf_monitor_mode" {
+  description = "When true, WAF managed rules run in count mode so requests are monitored but not blocked"
+  type        = bool
+  default     = true
+}
+
+variable "cloudfront_access_log_record_fields" {
+  description = "CloudFront standard logging v2 fields to include in delivered access logs"
+  type        = list(string)
+  default = [
+    "date",
+    "time",
+    "x-edge-location",
+    "sc-bytes",
+    "c-ip",
+    "cs-method",
+    "cs(Host)",
+    "cs-uri-stem",
+    "sc-status",
+    "cs(Referer)",
+    "cs(User-Agent)",
+    "cs-uri-query",
+    "cs(Cookie)",
+    "x-edge-result-type",
+    "x-edge-request-id",
+    "x-host-header",
+    "cs-protocol",
+    "cs-bytes",
+    "time-taken",
+    "x-forwarded-for",
+    "ssl-protocol",
+    "ssl-cipher",
+    "x-edge-response-result-type",
+    "cs-protocol-version",
+    "c-port",
+    "time-to-first-byte",
+    "x-edge-detailed-result-type",
+    "sc-content-type",
+    "sc-content-len",
+    "sc-range-start",
+    "sc-range-end",
+    "connection-id",
+    "asn",
+    "c-country",
+    "cache-behavior-path-pattern",
+  ]
+}
+
 variable "enable_sync_external_content" {
   description = "Flag to enable synchronization of external content"
   type        = bool
