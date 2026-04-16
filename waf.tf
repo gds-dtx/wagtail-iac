@@ -33,6 +33,21 @@ resource "aws_wafv2_web_acl" "cloudfront" {
         managed_rule_group_statement {
           name        = rule.value.name
           vendor_name = rule.value.vendor_name
+
+          dynamic "rule_action_override" {
+            for_each = rule.value.name == "AWSManagedRulesCommonRuleSet" && local.waf_sizerestriction_action_override != "none" ? local.waf_common_rule_set_sizerestriction_rules : []
+
+            content {
+              name = rule_action_override.value
+
+              action_to_use {
+                dynamic "count" {
+                  for_each = local.waf_sizerestriction_action_override == "count" ? [1] : []
+                  content {}
+                }
+              }
+            }
+          }
         }
       }
 

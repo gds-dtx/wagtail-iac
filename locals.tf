@@ -4,8 +4,9 @@ locals {
   ssm_key_prefix  = "/wagtail/${var.environment_name}/${var.wagtail_instance_id}"
   ssm_oidc_secret = "${local.ssm_key_prefix}/oidc_secret"
 
+  # Days must be one of: 0 1 3 5 7 14 30 60 90 120 150 180 365 400 545 731 1096 1827 2192 2557 2922 3288 3653
   wagtail_log_retention_days    = var.environment_name == "production" ? 365 : 14
-  cloudfront_log_retention_days = var.environment_name == "production" ? 740 : 14
+  cloudfront_log_retention_days = var.environment_name == "production" ? 1096 : 14
 
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
   enable_cloudfront_waf                            = var.enable_cloudfront_waf && var.bootstrap_step >= 1
@@ -45,6 +46,13 @@ locals {
       priority    = 50
       metric_name = "sqliRuleSet"
     },
+  ]
+  waf_sizerestriction_action_override = lower(var.sizerestriction_action_override)
+  waf_common_rule_set_sizerestriction_rules = [
+    "SizeRestrictions_QUERYSTRING",
+    "SizeRestrictions_Cookie_HEADER",
+    "SizeRestrictions_BODY",
+    "SizeRestrictions_URIPATH",
   ]
 
   database_username = sensitive(random_password.sql_master_username.result)
