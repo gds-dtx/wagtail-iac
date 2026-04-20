@@ -140,6 +140,17 @@ variable "waf_monitor_mode" {
   default     = true
 }
 
+variable "sizerestriction_action_override" {
+  description = "Override action for the AWSManagedRulesCommonRuleSet size restriction rules. Set to \"count\" to monitor them or \"none\" to use the AWS managed defaults."
+  type        = string
+  default     = "count"
+
+  validation {
+    condition     = contains(["count", "none"], lower(var.sizerestriction_action_override))
+    error_message = "sizerestriction_action_override must be one of: count, none."
+  }
+}
+
 variable "cloudfront_access_log_record_fields" {
   description = "CloudFront standard logging v2 fields to include in delivered access logs"
   type        = list(string)
