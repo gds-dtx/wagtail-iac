@@ -88,7 +88,7 @@ module "wagtail_iac" {
   sync_external_content_schedule = "cron(10 9,12,15,18 * * ? *)" # EventBridge schedule expression
 
   db_skip_final_snapshot = false                 # Skip final snapshot on delete (use with care)
-  db_engine_version      = "15.10"               # Aurora PostgreSQL engine version
+  db_engine_version      = "15.15"               # Aurora PostgreSQL engine version
   db_backup_window       = "01:00-03:00"         # Daily backup window (UTC)
   db_maintenance_window  = "sun:03:10-sun:06:00" # Weekly maintenance window (UTC)
 }

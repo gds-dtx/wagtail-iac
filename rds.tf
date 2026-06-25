@@ -126,6 +126,12 @@ resource "aws_rds_cluster" "db" {
     max_capacity = var.environment_name == "production" ? 32.0 : 8.0
     min_capacity = var.environment_name == "production" ? 1.0 : 0.5
   }
+
+  lifecycle {
+    ignore_changes = [
+      engine_version,
+    ]
+  }
 }
 
 resource "aws_rds_cluster_instance" "db" {
@@ -135,4 +141,10 @@ resource "aws_rds_cluster_instance" "db" {
   engine                       = aws_rds_cluster.db.engine
   engine_version               = aws_rds_cluster.db.engine_version
   performance_insights_enabled = var.environment_name == "production" ? true : false
+
+  lifecycle {
+    ignore_changes = [
+      engine_version,
+    ]
+  }
 }
