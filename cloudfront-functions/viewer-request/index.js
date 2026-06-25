@@ -79,7 +79,7 @@ function handler(event) {
     };
   }
 
-  if (norm_uri.match(/^\/.well[-_]known\/status/)) {
+  if (norm_uri.match(/^\/.well[-_]known\/cloudfront-status/)) {
     return {
       statusCode: 200,
       statusDescription: "OK",
