@@ -214,7 +214,7 @@ variable "db_skip_final_snapshot" {
 variable "db_engine_version" {
   description = "The Aurora PostgreSQL engine version"
   type        = string
-  default     = "15.10"
+  default     = "15.15"
 }
 
 variable "db_backup_window" {
