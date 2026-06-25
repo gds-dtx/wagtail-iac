@@ -41,12 +41,19 @@ resource "aws_acm_certificate_validation" "wagtail_cert" {
 # This will need to be created in the us-east-1 region for CloudFront
 
 resource "aws_acm_certificate" "cloudfront_cert" {
-  count             = var.bootstrap_step >= 2 ? 1 : 0
-  domain_name       = var.wagtail_domain
+  count       = var.bootstrap_step >= 2 ? 1 : 0
+  domain_name = var.wagtail_domain
+  subject_alternative_names = [
+    "www.${var.wagtail_domain}",
+  ]
   validation_method = "DNS"
 
   # this is set in the providers block when calling this module
   provider = aws.us-east-1
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tags = {
     Name = "${local.task_name}-cloudfront-certificate"

@@ -68,3 +68,41 @@ resource "aws_route53_record" "wagtail_aaaa" {
     evaluate_target_health = false
   }
 }
+
+resource "aws_route53_record" "wagtail_www_a" {
+  # this is set in the providers block when calling this module
+  provider = aws.dns-account
+
+  count = var.bootstrap_step >= 3 ? 1 : 0
+
+  zone_id = data.aws_route53_zone.zone.zone_id
+  name    = "www.${var.wagtail_domain}"
+  type    = "A"
+
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.this[0].domain_name
+    zone_id                = aws_cloudfront_distribution.this[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "wagtail_www_aaaa" {
+  # this is set in the providers block when calling this module
+  provider = aws.dns-account
+
+  count = var.bootstrap_step >= 3 ? 1 : 0
+
+  zone_id = data.aws_route53_zone.zone.zone_id
+  name    = "www.${var.wagtail_domain}"
+  type    = "AAAA"
+
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.this[0].domain_name
+    zone_id                = aws_cloudfront_distribution.this[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}

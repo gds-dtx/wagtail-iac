@@ -13,6 +13,7 @@ locals {
   cloudfront_access_logs_log_group_name            = "${local.task_name}-cf-access-logs"
   cloudfront_access_logs_delivery_source_name      = substr("${local.task_name}-cf-logs-src", 0, 60)
   cloudfront_access_logs_delivery_destination_name = substr("${local.task_name}-cf-logs-dst", 0, 60)
+  cloudfront_viewer_request_function_name          = substr("${local.task_name}-viewer-request", 0, 64)
   cloudfront_waf_name                              = substr("${local.task_name}-cf-waf", 0, 60)
 
   waf_managed_rule_groups = [
