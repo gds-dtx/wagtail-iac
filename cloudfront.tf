@@ -22,6 +22,16 @@ resource "random_password" "cloudfront_origin_header" {
   }
 }
 
+resource "aws_cloudfront_function" "viewer_request" {
+  count = var.bootstrap_step >= 3 ? 1 : 0
+
+  name    = local.cloudfront_viewer_request_function_name
+  runtime = "cloudfront-js-2.0"
+  comment = "Viewer request handling for ${var.wagtail_domain}"
+  publish = true
+  code    = file("${path.module}/cloudfront-functions/viewer-request/index.js")
+}
+
 resource "aws_cloudfront_distribution" "this" {
   count = var.bootstrap_step >= 1 ? 1 : 0
 
@@ -53,7 +63,7 @@ resource "aws_cloudfront_distribution" "this" {
   http_version    = "http2and3"
   web_acl_id      = local.enable_cloudfront_waf ? aws_wafv2_web_acl.cloudfront[0].arn : null
 
-  aliases = var.bootstrap_step >= 3 ? [var.wagtail_domain] : []
+  aliases = var.bootstrap_step >= 3 ? [var.wagtail_domain, "www.${var.wagtail_domain}"] : []
 
   default_cache_behavior {
     target_origin_id       = "alb-origin"
@@ -65,6 +75,15 @@ resource "aws_cloudfront_distribution" "this" {
     cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
 
     compress = true
+
+    dynamic "function_association" {
+      for_each = var.bootstrap_step >= 3 ? [aws_cloudfront_function.viewer_request[0].arn] : []
+
+      content {
+        event_type   = "viewer-request"
+        function_arn = function_association.value
+      }
+    }
   }
 
   restrictions {

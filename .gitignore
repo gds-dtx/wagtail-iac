@@ -4,6 +4,8 @@
 .terraform/
 .terraform*
 
+**/node_modules/
+
 # .tfstate files
 *.tfstate
 *.tfstate.*

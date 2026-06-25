@@ -1,0 +1,29 @@
+{
+  "name": "viewer-request",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test_index.js"
+  },
+  "directories": {
+    "test": "."
+  },
+  "author": "OllieJC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gds-dtx/wagtail-iac.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gds-dtx/wagtail-iac/issues"
+  },
+  "homepage": "https://github.com/gds-dtx/wagtail-iac",
+  "description": "",
+  "engines": {
+    "npm": ">=11.6",
+    "node": ">=24"
+  },
+  "dependencies": {
+    "glob": "^13.0.6"
+  }
+}
