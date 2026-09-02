@@ -34,3 +34,17 @@ jobs:
 
       - name: TFLint
         run: tflint --format compact
+
+  viewer-request:
+    name: Viewer request function
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudfront-functions/viewer-request
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: cloudfront-functions/viewer-request/.nvmrc
+      - name: Test
+        run: npm test

@@ -65,3 +65,42 @@ test("blocks known bad paths", () => {
     assert.equal(response.body, "Access denied", uri);
   }
 });
+
+test("redirects the security.txt well-known URIs", () => {
+  const securityTxtUris = [
+    "/security.txt",
+    "/security",
+    "/security/",
+    "/.well-known/security.txt",
+    "/.well_known/security.txt",
+    "/.well-known/security",
+    "/SECURITY.TXT?utm=1#frag",
+  ];
+
+  for (const uri of securityTxtUris) {
+    const response = handler(eventFor({ host: "example.com", uri }));
+
+    assert.equal(response.statusCode, 302, uri);
+    assert.equal(
+      response.headers.location.value,
+      "https://vulnerability-reporting.service.security.gov.uk/.well-known/security.txt",
+      uri,
+    );
+  }
+});
+
+test("does not redirect ordinary paths that merely start with security", () => {
+  const contentUris = [
+    "/security-architect/",
+    "/security-architect/skills/",
+    "/security-operations/",
+    "/securitytxt-guidance/",
+    "/xwell-known/security.txt",
+  ];
+
+  for (const uri of contentUris) {
+    const event = eventFor({ host: "example.com", uri });
+
+    assert.equal(handler(event), event.request, uri);
+  }
+});
