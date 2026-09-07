@@ -69,11 +69,8 @@ test("blocks known bad paths", () => {
 test("redirects the security.txt well-known URIs", () => {
   const securityTxtUris = [
     "/security.txt",
-    "/security",
-    "/security/",
     "/.well-known/security.txt",
     "/.well_known/security.txt",
-    "/.well-known/security",
     "/SECURITY.TXT?utm=1#frag",
   ];
 
@@ -96,6 +93,11 @@ test("does not redirect ordinary paths that merely start with security", () => {
     "/security-operations/",
     "/securitytxt-guidance/",
     "/xwell-known/security.txt",
+    // Only the two canonical files are the security.txt: a bare /security
+    // or /.well-known/security is a page like any other.
+    "/security",
+    "/security/",
+    "/.well-known/security",
   ];
 
   for (const uri of contentUris) {

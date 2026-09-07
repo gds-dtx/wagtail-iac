@@ -38,6 +38,8 @@ jobs:
   viewer-request:
     name: Viewer request function
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: cloudfront-functions/viewer-request
