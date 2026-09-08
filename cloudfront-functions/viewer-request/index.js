@@ -56,7 +56,7 @@ function handler(event) {
 
   /* well-known URIs */
 
-  if (norm_uri.match(/^(\/.well[-_]known)?\/security(\.txt)?/)) {
+  if (norm_uri.match(/^(\/\.well[-_]known)?\/security\.txt$/)) {
     return redirect(
       "https://vulnerability-reporting.service.security.gov.uk/.well-known/security.txt",
       true,
