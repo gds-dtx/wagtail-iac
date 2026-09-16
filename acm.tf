@@ -5,6 +5,9 @@ resource "aws_acm_certificate" "wagtail_cert" {
   domain_name       = "alb.${var.wagtail_domain}"
   validation_method = "DNS"
 
+  # Publish CAA authorization before ACM attempts certificate issuance.
+  depends_on = [aws_route53_record.wagtail_caa]
+
   tags = {
     Name = "${local.task_name}-acm-certificate"
   }
@@ -47,6 +50,9 @@ resource "aws_acm_certificate" "cloudfront_cert" {
     "www.${var.wagtail_domain}",
   ]
   validation_method = "DNS"
+
+  # Publish CAA authorization before ACM attempts certificate issuance.
+  depends_on = [aws_route53_record.wagtail_caa]
 
   # this is set in the providers block when calling this module
   provider = aws.us-east-1

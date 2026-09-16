@@ -110,6 +110,12 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "enable_caa_records" {
+  description = "Create Route53 CAA records for the domain and www authorizing Amazon to issue ACM certificates when bootstrap_step >= 2"
+  type        = bool
+  default     = true
+}
+
 variable "create_ssm_parameters" {
   description = "Flag to enable creation of SSM parameters"
   type        = bool
