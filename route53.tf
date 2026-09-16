@@ -17,6 +17,28 @@ data "aws_route53_zone" "zone" {
   zone_id = var.route53_zone_id != "" ? var.route53_zone_id : aws_route53_zone._zone[0].zone_id
 }
 
+resource "aws_route53_record" "wagtail_caa" {
+  # this is set in the providers block when calling this module
+  provider = aws.dns-account
+
+  for_each = var.bootstrap_step >= 2 && var.enable_caa_records ? toset([
+    var.wagtail_domain,
+    "www.${var.wagtail_domain}",
+  ]) : toset([])
+
+  zone_id = data.aws_route53_zone.zone.zone_id
+  name    = each.value
+  type    = "CAA"
+  ttl     = 300
+
+  records = [
+    "0 issue \"amazon.com\"",
+    "0 issue \"amazontrust.com\"",
+    "0 issue \"awstrust.com\"",
+    "0 issue \"amazonaws.com\"",
+  ]
+}
+
 resource "aws_route53_record" "alb" {
   # this is set in the providers block when calling this module
   provider = aws.dns-account

@@ -78,7 +78,8 @@ module "wagtail_iac" {
 
   django_settings_module = "govuk.settings.dev" # DJANGO_SETTINGS_MODULE value
 
-  route53_zone_id = "" # Optional: existing hosted zone ID; empty means create zone at bootstrap step 1
+  route53_zone_id    = ""   # Optional: existing hosted zone ID; empty means create zone at bootstrap step 1
+  enable_caa_records = true # Publish Amazon CAA records when ACM certificates are enabled
 
   enable_execute_command = false # Enable ECS Exec on service tasks
   enable_cloudfront_waf  = false # Enable AWS WAF on the CloudFront distribution
@@ -97,8 +98,14 @@ module "wagtail_iac" {
 ## Bootstrap Sequence
 
 1. `bootstrap_step = 1`: creates/uses Route53 zone, creates `alb.<domain>` CNAME, creates CloudFront with default cert.
-2. `bootstrap_step = 2`: provisions ACM certs and validation, ECS task/service, IAM execution policy, and optional scheduled task.
+2. `bootstrap_step = 2`: publishes CAA records (enabled by default), provisions ACM certs and their Route53 DNS validation records, ECS task/service, IAM execution policy, and optional scheduled task.
 3. `bootstrap_step = 3`: enables custom TLS on ALB + CloudFront alias, and creates apex `A`/`AAAA` records for `<domain>`.
+
+## CAA Records
+
+`enable_caa_records` defaults to `true`. When `bootstrap_step >= 2`, the module creates CAA record sets for both `wagtail_domain` and `www.<wagtail_domain>` in the selected Route53 hosted zone using `aws.dns-account`. Each record set authorizes `amazon.com`, `amazontrust.com`, `awstrust.com`, and `amazonaws.com`, as described in the [ACM CAA documentation](https://docs.aws.amazon.com/acm/latest/userguide/setup.html#setup-caa). Both ACM certificate requests wait for these record sets to be created.
+
+Set `enable_caa_records = false` if CAA records are managed elsewhere. ACM certificates and their Route53 DNS validation records are still created. Existing CAA record sets are not overwritten automatically; import those record sets into this module or disable CAA management.
 
 ## Optional WAF
 
