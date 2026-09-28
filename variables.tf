@@ -101,7 +101,7 @@ variable "wagtail_variables" {
 variable "django_settings_module" {
   description = "The Django settings module to use for the wagtail application"
   type        = string
-  default     = "govuk.settings.dev"
+  default     = "govuk.settings.production"
 }
 
 variable "route53_zone_id" {
