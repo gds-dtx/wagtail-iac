@@ -76,7 +76,7 @@ module "wagtail_iac" {
     EXAMPLE_FLAG = "true"
   }
 
-  django_settings_module = "govuk.settings.dev" # DJANGO_SETTINGS_MODULE value
+  django_settings_module = "govuk.settings.production" # DJANGO_SETTINGS_MODULE value
 
   route53_zone_id    = ""   # Optional: existing hosted zone ID; empty means create zone at bootstrap step 1
   enable_caa_records = true # Publish Amazon CAA records when ACM certificates are enabled
