@@ -70,7 +70,7 @@ resource "aws_lb_target_group" "alb_tg" {
   }
 
   health_check {
-    path                = "/api/health"
+    path                = "/api/health/"
     port                = "traffic-port" # use the port the container listens on
     protocol            = "HTTP"
     interval            = 30
