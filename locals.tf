@@ -8,6 +8,10 @@ locals {
   wagtail_log_retention_days    = var.environment_name == "production" ? 365 : 14
   cloudfront_log_retention_days = var.environment_name == "production" ? 1096 : 14
 
+  # Media S3 requires the CloudFront distribution (bootstrap_step >= 1) for the /media/* behaviour and OAC bucket policy.
+  enable_media_s3   = var.enable_media_s3 && var.bootstrap_step >= 1
+  media_bucket_name = var.media_bucket_name != "" ? var.media_bucket_name : "${local.task_name}-media-${var.environment_name}"
+
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
   enable_cloudfront_waf                            = var.enable_cloudfront_waf && var.bootstrap_step >= 1
   cloudfront_access_logs_log_group_name            = "${local.task_name}-cf-access-logs"
@@ -76,7 +80,15 @@ locals {
       SMTP_SECURE                  = "false"
       SMTP_TLS_REJECT_UNAUTHORIZED = "false"
       DJANGO_SETTINGS_MODULE       = var.django_settings_module
-    }
+    },
+    # Media served from the same origin via the /media/* CloudFront behaviour,
+    # so MEDIA_S3_CUSTOM_DOMAIN is the site domain (img-src 'self' already covers it).
+    local.enable_media_s3 ? {
+      MEDIA_S3_BUCKET        = local.media_bucket_name
+      MEDIA_S3_REGION        = data.aws_region.current.region
+      MEDIA_S3_CUSTOM_DOMAIN = var.wagtail_domain
+      MEDIA_S3_LOCATION      = var.media_s3_location
+    } : {}
   )
 }
 

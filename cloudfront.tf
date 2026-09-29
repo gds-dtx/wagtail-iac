@@ -6,6 +6,10 @@ data "aws_cloudfront_cache_policy" "disabled" {
   name = "Managed-CachingDisabled"
 }
 
+data "aws_cloudfront_cache_policy" "optimized" {
+  name = "Managed-CachingOptimized"
+}
+
 resource "random_password" "cloudfront_origin_header" {
   length  = 16
   special = false
@@ -57,6 +61,17 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
+  # S3 media origin (private, read via OAC). Serves the /media/* behaviour below.
+  dynamic "origin" {
+    for_each = local.enable_media_s3 ? [1] : []
+
+    content {
+      domain_name              = aws_s3_bucket.media[0].bucket_regional_domain_name
+      origin_id                = "media-s3-origin"
+      origin_access_control_id = aws_cloudfront_origin_access_control.media[0].id
+    }
+  }
+
   enabled         = true
   is_ipv6_enabled = true
   comment         = var.wagtail_domain
@@ -83,6 +98,23 @@ resource "aws_cloudfront_distribution" "this" {
         event_type   = "viewer-request"
         function_arn = function_association.value
       }
+    }
+  }
+
+  # Route /media/* to the S3 media origin. Cached (unlike the app default),
+  # no viewer headers/cookies forwarded (an S3 origin must not receive the
+  # AllViewer origin request policy).
+  dynamic "ordered_cache_behavior" {
+    for_each = local.enable_media_s3 ? [1] : []
+
+    content {
+      path_pattern           = "/${var.media_s3_location}/*"
+      target_origin_id       = "media-s3-origin"
+      viewer_protocol_policy = "redirect-to-https"
+      allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+      cached_methods         = ["GET", "HEAD"]
+      cache_policy_id        = data.aws_cloudfront_cache_policy.optimized.id
+      compress               = true
     }
   }
 

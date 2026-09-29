@@ -23,6 +23,7 @@ Terraform module for deploying a Wagtail application on ECS Fargate behind Cloud
 - CloudWatch log group
 - Route53 records, ACM certificates, and CloudFront distribution
 - Optional AWS WAF web ACL for CloudFront
+- Optional S3 media bucket served via a `/media/*` CloudFront behaviour (OAC)
 - Scheduled EventBridge task for `sync_external_content` (optional)
 
 ## Prerequisites
@@ -92,6 +93,10 @@ module "wagtail_iac" {
   db_engine_version      = "15.15"               # Aurora PostgreSQL engine version
   db_backup_window       = "01:00-03:00"         # Daily backup window (UTC)
   db_maintenance_window  = "sun:03:10-sun:06:00" # Weekly maintenance window (UTC)
+
+  enable_media_s3   = false # Create S3 media bucket + /media/* CloudFront behaviour and wire the app to it
+  media_bucket_name = ""    # Optional override; empty computes wagtail-<instance_id>-media-<environment_name>
+  media_s3_location = "media" # Key prefix and CloudFront path pattern (/media/*)
 }
 ```
 
@@ -107,6 +112,42 @@ module "wagtail_iac" {
 
 Set `enable_caa_records = false` if CAA records are managed elsewhere. ACM certificates and their Route53 DNS validation records are still created. Existing CAA record sets are not overwritten automatically; import those record sets into this module or disable CAA management.
 
+## Optional S3 Media
+
+Set `enable_media_s3 = true` to store Wagtail media (uploaded images and, via the
+same default storage, `wagtail.documents`) on S3 instead of the per-task EFS/container
+path. This mirrors the app's opt-in behaviour: the Wagtail settings switch to
+`S3Storage` only when `MEDIA_S3_BUCKET` is set, which this module sets on the ECS task
+when the flag is on.
+
+What it creates:
+
+- **S3 bucket** (`media_bucket_name`, default `wagtail-<instance_id>-media-<environment_name>`)
+  with versioning on, SSE (AES256), `BucketOwnerEnforced` ownership, and all public
+  access blocked. A bucket policy denies non-TLS access and allows read only from this
+  distribution via Origin Access Control.
+- **`/media/*` cache behaviour** on the existing CloudFront distribution, pointing at the
+  S3 origin (cached, `Managed-CachingOptimized`). Media is served from the site's own
+  domain, e.g. `https://<wagtail_domain>/media/...`.
+- **IAM policy** on the ECS task role granting `s3:GetObject`/`PutObject`/`DeleteObject`
+  on objects and `s3:ListBucket` on the bucket. Credentials come from the task role — no
+  access keys.
+- **Env vars** on the task: `MEDIA_S3_BUCKET`, `MEDIA_S3_REGION`, `MEDIA_S3_LOCATION`, and
+  `MEDIA_S3_CUSTOM_DOMAIN` (= `wagtail_domain`, since media is same-origin).
+
+Notes:
+
+- Requires `bootstrap_step >= 1` (the CloudFront distribution must exist). Because
+  `MEDIA_S3_CUSTOM_DOMAIN` is the site domain, enable this once the site serves on its
+  custom domain (`bootstrap_step = 3`), otherwise media URLs resolve only after the alias
+  is live.
+- Because media serves from the same origin, **no CSP `img-src` change is needed** — the
+  app's `'self'` already covers it. (A separate `media.<domain>` distribution would have
+  required one.)
+- Objects are private and served publicly through CloudFront (OAC); the app keeps
+  `MEDIA_S3_QUERYSTRING_AUTH` off. Documents share the default storage, so they go to S3 too.
+
+
 ## Optional WAF
 
 - `enable_cloudfront_waf`: creates a CloudFront-scope web ACL with AWS managed rule groups and associates it with the distribution.
@@ -117,3 +158,4 @@ Set `enable_caa_records = false` if CAA records are managed elsewhere. ACM certi
 - `route53_zone_name_servers`: name servers for the created hosted zone (empty when reusing an existing zone)
 - `task_name`: computed ECS task family/service name
 - `ssm_name_oidc_secret`: SSM parameter path expected for OIDC client secret
+- `media_bucket_name`: name of the S3 media bucket (empty when `enable_media_s3` is false)

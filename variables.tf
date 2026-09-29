@@ -234,3 +234,21 @@ variable "db_maintenance_window" {
   type        = string
   default     = "sun:03:10-sun:06:00"
 }
+
+variable "enable_media_s3" {
+  description = "Create an S3 bucket for Wagtail media, serve it through a /media/* CloudFront behaviour (OAC), grant the ECS task role read/write, and set MEDIA_S3_* env vars on the app. Mirrors the app's opt-in: S3 media only activates when MEDIA_S3_BUCKET is set. Requires bootstrap_step >= 1 for the CloudFront wiring."
+  type        = bool
+  default     = false
+}
+
+variable "media_bucket_name" {
+  description = "Override the media S3 bucket name (must be globally unique). Empty computes 'wagtail-<wagtail_instance_id>-media-<environment_name>'."
+  type        = string
+  default     = ""
+}
+
+variable "media_s3_location" {
+  description = "Key prefix within the media bucket, matching the app's MEDIA_S3_LOCATION. Also drives the CloudFront path pattern (/<media_s3_location>/*)."
+  type        = string
+  default     = "media"
+}
