@@ -55,6 +55,33 @@ resource "aws_iam_role_policy" "efs_mount" {
   })
 }
 
+resource "aws_iam_role_policy" "media_s3" {
+  count = local.enable_media_s3 ? 1 : 0
+
+  name = "${local.task_name}-media-s3-policy"
+  role = aws_iam_role.ecs_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = [aws_s3_bucket.media[0].arn]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = ["${aws_s3_bucket.media[0].arn}/*"]
+      }
+    ]
+  })
+}
+
 ## ECS Task Execution Role
 
 resource "aws_iam_role" "ecs_task_execution" {
