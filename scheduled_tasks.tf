@@ -39,9 +39,9 @@ resource "aws_iam_role_policy" "ecs_events_run_task" {
       {
         Effect = "Allow"
         Action = ["ecs:RunTask"]
-        # One ARN as a string, as it was, so instances without the MCP server
-        # see no change to the policy.
-        Resource = length(local.scheduled_task_definition_arns) == 1 ? local.scheduled_task_definition_arns[0] : local.scheduled_task_definition_arns
+        # Always a list. The provider compares policies semantically, so
+        # instances that previously had one ARN as a string see no diff.
+        Resource = local.scheduled_task_definition_arns
         Condition = {
           ArnLike = {
             "ecs:cluster" = data.aws_ecs_cluster.ecs_cluster.arn
