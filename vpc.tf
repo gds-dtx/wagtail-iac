@@ -21,7 +21,7 @@ resource "aws_security_group" "ecs_service" {
     for_each = local.enable_mcp ? [local.mcp_port] : []
 
     content {
-      description     = "Allow the MCP server's HTTP from ALB"
+      description     = "Allow MCP server HTTP from ALB"
       from_port       = ingress.value
       to_port         = ingress.value
       protocol        = "tcp"
