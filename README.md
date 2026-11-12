@@ -58,6 +58,8 @@ module "wagtail_iac" {
   task_memory = 2048 # ECS task memory in MiB
   task_cpu    = 1024 # ECS task CPU units
 
+  web_concurrency = null # Gunicorn workers per task; null means two per vCPU (task_cpu / 512), minimum one
+
   efs_id = "fs-0123456789abcdef0" # Existing EFS filesystem ID
 
   port             = 8000 # Application port used by ALB listener and container

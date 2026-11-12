@@ -41,6 +41,17 @@ variable "task_cpu" {
   default     = 1024
 }
 
+variable "web_concurrency" {
+  description = "Number of gunicorn workers per task (WEB_CONCURRENCY). Null derives it from task_cpu: two per vCPU, minimum one."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.web_concurrency == null || try(var.web_concurrency >= 1 && floor(var.web_concurrency) == var.web_concurrency, false)
+    error_message = "web_concurrency must be null or a whole number of at least 1."
+  }
+}
+
 variable "efs_id" {
   description = "The ID of the EFS file system to use for persistent storage"
   type        = string

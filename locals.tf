@@ -63,7 +63,14 @@ locals {
   database_username = sensitive(random_password.sql_master_username.result)
   database_password = sensitive(random_password.sql_master_password.result)
   database_name     = sensitive("db${random_password.sql_database_name.result}")
+
+  # Gunicorn reads WEB_CONCURRENCY as its worker count. Derived from task_cpu
+  # rather than in the image, because on Fargate os.cpu_count() reports the
+  # host's CPUs, not the task's share.
+  web_concurrency = coalesce(var.web_concurrency, max(1, floor(var.task_cpu / 512)))
+
   wagtail_variables = merge(
+    { WEB_CONCURRENCY = tostring(local.web_concurrency) },
     var.wagtail_variables,
     {
       DOMAIN                       = var.wagtail_domain
