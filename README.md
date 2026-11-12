@@ -25,6 +25,7 @@ Terraform module for deploying a Wagtail application on ECS Fargate behind Cloud
 - Optional AWS WAF web ACL for CloudFront
 - Optional S3 media bucket served via a `/media/*` CloudFront behaviour (OAC)
 - Scheduled EventBridge task for `sync_external_content` (optional)
+- Optional MCP server: its own ECS service at `/mcp`, a WAF rate limit, and scheduled tasks that keep its content index current
 
 ## Prerequisites
 
@@ -99,6 +100,16 @@ module "wagtail_iac" {
   enable_media_s3   = false # Create S3 media bucket + /media/* CloudFront behaviour and wire the app to it
   media_bucket_name = ""    # Optional override; empty computes wagtail-<instance_id>-media-<environment_name>
   media_s3_location = "media" # Key prefix and CloudFront path pattern (/media/*)
+
+  enable_mcp            = false   # Run the app's MCP server at /mcp, with its scheduled tasks
+  mcp_task_cpu          = 256     # MCP server task CPU units (also its scheduled tasks)
+  mcp_task_memory       = 1024    # MCP server task memory in MiB
+  mcp_desired_count     = null    # MCP server tasks; null means desired_count
+  mcp_rate_limit        = 300     # Requests per client IP per 5 minutes on /mcp (needs enable_cloudfront_waf)
+  mcp_rate_limit_action = "block" # block (with a 429) or count
+
+  harvest_external_sources_schedule = "cron(0 6 * * ? *)"  # Fetch external entries' sources (UTC)
+  rebuild_content_index_schedule    = "cron(30 6 * * ? *)" # Rebuild the content index (UTC)
 }
 ```
 
@@ -155,9 +166,65 @@ Notes:
 - `enable_cloudfront_waf`: creates a CloudFront-scope web ACL with AWS managed rule groups and associates it with the distribution.
 - `waf_monitor_mode = true`: runs the managed rule groups in `count` mode so you can observe matches before enforcing. Set it to `false` to let the managed rule actions block requests.
 
+## Optional MCP server
+
+Set `enable_mcp = true` to run the app's MCP server, which lets AI tools search
+and read the site's published content. It needs `bootstrap_step >= 2` and an
+image that has it (`manage.py run_mcp_server`).
+
+What it creates:
+
+- **An ECS service**, `wagtail-<instance_id>-mcp`.
+  - **What it runs:** the same image and environment as the site, with
+    `python manage.py run_mcp_server --host 0.0.0.0 --port 8001 --workers 1`
+    on `mcp_task_cpu` and `mcp_task_memory` (256 / 1024 by default).
+  - **Why it is separate:** ECS replaces a whole task when one of its target
+    groups fails a health check, so the MCP server must not share the site's
+    task.
+  - **What it does not do:** it mounts no EFS and runs no migrations; the
+    site's container still runs them.
+  - **Networking:** it shares the site's security group, which the database
+    lets in. That group also lets port 8001 in from the load balancer.
+- **A target group** (`mcp-<instance_id>`) with a health check of
+  `GET /mcp/health`.
+- **A listener rule** at priority 10 sending `/mcp` and `/mcp/*` to it, with
+  the same host and `X-ALB-Protection` conditions as the site's rule. The
+  site's rule moves from priority 1 to 20 so that it comes after; instances
+  without the MCP server keep priority 1. Check the plan: if Terraform replaces
+  the site's rule rather than updating it, the site answers 404 for a moment
+  during the apply.
+- **Environment variables** on every container:
+  - `FEATURE_MCP=true`: the site writes the content index as editors publish,
+    and the MCP server will not start without it.
+  - `MCP_CLIENT_IP_HEADER=true-client-ip`, from `bootstrap_step = 3`, so the
+    app's rate limit counts each viewer rather than CloudFront's edges. The
+    viewer request function sets that header from the viewer's own address.
+    Before step 3 there is no function to overwrite it, so it is not trusted.
+- **A WAF rate limit** of `mcp_rate_limit` requests per client IP per five
+  minutes on URIs starting `/mcp`, answered with a 429, when
+  `enable_cloudfront_waf` is on. Its action (`mcp_rate_limit_action`) is its
+  own: `waf_monitor_mode` applies to the managed rule groups only.
+- **Two scheduled tasks**, run like `sync_external_content` but from the MCP
+  server's smaller task definition:
+  - `harvest_external_sources` (`harvest_external_sources_schedule`, 06:00
+    UTC daily): fetches external catalogue entries' source pages into the
+    index. It needs outbound https to the sources, which the tasks' subnets
+    already give `sync_external_content`.
+  - `rebuild_content_index` (`rebuild_content_index_schedule`, 06:30 UTC
+    daily): rebuilds the index, catching changes that no publish announces.
+
+After the first apply, fill the index once with ECS Exec on a site or MCP
+task:
+
+```bash
+python manage.py rebuild_content_index
+python manage.py harvest_external_sources
+```
+
 ## Outputs
 
 - `route53_zone_name_servers`: name servers for the created hosted zone (empty when reusing an existing zone)
 - `task_name`: computed ECS task family/service name
 - `ssm_name_oidc_secret`: SSM parameter path expected for OIDC client secret
 - `media_bucket_name`: name of the S3 media bucket (empty when `enable_media_s3` is false)
+- `mcp_service_name`: name of the MCP server's ECS service (empty when `enable_mcp` is false)

@@ -9,15 +9,26 @@ data "aws_iam_policy_document" "ecs_events_assume" {
   }
 }
 
+locals {
+  # The role EventBridge runs scheduled tasks with: for sync_external_content,
+  # and the content index's tasks (mcp.tf), which run from the MCP server's
+  # task definition.
+  enable_scheduled_tasks = var.bootstrap_step >= 2 && (var.enable_sync_external_content || local.enable_mcp)
+  scheduled_task_definition_arns = concat(
+    var.bootstrap_step >= 2 && var.enable_sync_external_content ? [aws_ecs_task_definition.ecs_task_definition[0].arn] : [],
+    local.enable_mcp ? [aws_ecs_task_definition.mcp[0].arn] : [],
+  )
+}
+
 resource "aws_iam_role" "ecs_events" {
-  count = var.bootstrap_step >= 2 && var.enable_sync_external_content ? 1 : 0
+  count = local.enable_scheduled_tasks ? 1 : 0
 
   name               = "${local.task_name}-events-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_events_assume.json
 }
 
 resource "aws_iam_role_policy" "ecs_events_run_task" {
-  count = var.bootstrap_step >= 2 && var.enable_sync_external_content ? 1 : 0
+  count = local.enable_scheduled_tasks ? 1 : 0
 
   name = "${local.task_name}-events-run-task"
   role = aws_iam_role.ecs_events[0].id
@@ -26,9 +37,11 @@ resource "aws_iam_role_policy" "ecs_events_run_task" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["ecs:RunTask"]
-        Resource = aws_ecs_task_definition.ecs_task_definition[0].arn
+        Effect = "Allow"
+        Action = ["ecs:RunTask"]
+        # One ARN as a string, as it was, so instances without the MCP server
+        # see no change to the policy.
+        Resource = length(local.scheduled_task_definition_arns) == 1 ? local.scheduled_task_definition_arns[0] : local.scheduled_task_definition_arns
         Condition = {
           ArnLike = {
             "ecs:cluster" = data.aws_ecs_cluster.ecs_cluster.arn
