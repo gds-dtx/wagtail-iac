@@ -321,3 +321,32 @@ variable "rebuild_content_index_schedule" {
   type        = string
   default     = "cron(30 6 * * ? *)"
 }
+
+variable "enable_ask" {
+  description = "Turn on Ask (FEATURE_ASK): the question box block and the /ask/ page, which match questions by meaning with Amazon Titan Text Embeddings V2, and re-rank and summarise the matches with Claude in Amazon Bedrock. The summary is served by the MCP server's service at /ask/summary/, so this needs enable_mcp. Each use of Claude is still switched on in the site's admin (Settings > Ask)."
+  type        = bool
+  default     = false
+}
+
+variable "ask_claude_model" {
+  description = "The Claude model Ask calls, as Claude in Amazon Bedrock (the bedrock-mantle endpoint) names it."
+  type        = string
+  default     = "anthropic.claude-opus-5-5"
+}
+
+variable "ask_daily_token_budget" {
+  description = "Tokens Claude may use for Ask in a day (UTC), across every task. Past it, Ask shows its matches without Claude until midnight."
+  type        = number
+  default     = 2000000
+
+  validation {
+    condition     = var.ask_daily_token_budget >= 0
+    error_message = "ask_daily_token_budget cannot be negative."
+  }
+}
+
+variable "bedrock_region" {
+  description = "The region Ask calls Amazon Bedrock in, for embeddings and Claude. Null uses the instance's own region."
+  type        = string
+  default     = null
+}

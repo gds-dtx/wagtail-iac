@@ -20,6 +20,10 @@ locals {
   # Target group names are limited to 32 characters; "wagtail-<id>-mcp-tg" can pass that.
   mcp_target_group_name = "mcp-${var.wagtail_instance_id}"
 
+  # Ask: its summary is served by the MCP server's service, so it needs it.
+  enable_ask     = var.enable_ask && local.enable_mcp
+  bedrock_region = coalesce(var.bedrock_region, data.aws_region.current.region)
+
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
   enable_cloudfront_waf                            = var.enable_cloudfront_waf && var.bootstrap_step >= 1
   cloudfront_access_logs_log_group_name            = "${local.task_name}-cf-access-logs"
@@ -112,7 +116,20 @@ locals {
     # request function is attached (bootstrap_step 3), which overwrites
     # true-client-ip with the viewer's own address: before that CloudFront
     # forwards whatever the client sent, and a client could pick its own.
-    local.enable_mcp && var.bootstrap_step >= 3 ? { MCP_CLIENT_IP_HEADER = "true-client-ip" } : {}
+    local.enable_mcp && var.bootstrap_step >= 3 ? { MCP_CLIENT_IP_HEADER = "true-client-ip" } : {},
+    # Ask, on every container: the site answers /ask/ and embeds each
+    # question, the MCP service writes the summary, and the nightly rebuild
+    # embeds the content index. Its rate limits count the same header as the
+    # MCP server's (the app's CLIENT_IP_HEADER defaults to it).
+    local.enable_ask ? {
+      FEATURE_ASK                    = "true"
+      CONTENT_INDEX_EMBEDDINGS       = "bedrock"
+      CONTENT_INDEX_EMBEDDING_REGION = local.bedrock_region
+      ASK_CLAUDE                     = "bedrock"
+      ASK_CLAUDE_MODEL               = var.ask_claude_model
+      ASK_CLAUDE_REGION              = local.bedrock_region
+      ASK_DAILY_TOKEN_BUDGET         = tostring(var.ask_daily_token_budget)
+    } : {}
   )
 }
 

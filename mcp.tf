@@ -1,6 +1,10 @@
 # The MCP server: the app's read-only Model Context Protocol endpoint, which
 # lets AI tools search and read the site's published content.
 #
+# With enable_ask it also serves Ask's summary at /ask/summary/: a call to
+# Claude takes seconds, which this async service waits out where the site's
+# synchronous gunicorn workers would be tied up.
+#
 # Its own ECS service rather than a second container in the site's task: ECS
 # replaces a whole task when any of its target groups fails a health check,
 # so a problem here must not restart the site. It runs the same image with the
@@ -152,7 +156,8 @@ resource "aws_lb_listener_rule" "mcp" {
 
   condition {
     path_pattern {
-      values = ["/mcp", "/mcp/*"]
+      # And Ask's summary, which the same service serves.
+      values = concat(["/mcp", "/mcp/*"], local.enable_ask ? ["/ask/summary/"] : [])
     }
   }
 

@@ -136,3 +136,34 @@ resource "aws_iam_role_policy" "ecs_exec_custom" {
     ]
   })
 }
+
+# Ask: Titan Text Embeddings V2 (bedrock-runtime) for the content index and
+# each question, and Claude in Amazon Bedrock (bedrock-mantle) to re-rank and
+# summarise. On the task role, which the site, the MCP service and the
+# scheduled tasks all use.
+resource "aws_iam_role_policy" "ask_bedrock" {
+  count = local.enable_ask ? 1 : 0
+
+  name = "${local.task_name}-ask-bedrock-policy"
+  role = aws_iam_role.ecs_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "TitanEmbeddings"
+        Effect   = "Allow"
+        Action   = ["bedrock:InvokeModel"]
+        Resource = ["arn:aws:bedrock:${local.bedrock_region}::foundation-model/amazon.titan-embed-text-v2:0"]
+      },
+      {
+        # The one action, on any model: narrow Resource to the model's ARN
+        # once its bedrock-mantle ARN form is confirmed in the account.
+        Sid      = "ClaudeInBedrock"
+        Effect   = "Allow"
+        Action   = ["bedrock-mantle:CreateInference"]
+        Resource = "*"
+      },
+    ]
+  })
+}

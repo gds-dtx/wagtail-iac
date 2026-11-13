@@ -26,6 +26,7 @@ Terraform module for deploying a Wagtail application on ECS Fargate behind Cloud
 - Optional S3 media bucket served via a `/media/*` CloudFront behaviour (OAC)
 - Scheduled EventBridge task for `sync_external_content` (optional)
 - Optional MCP server: its own ECS service at `/mcp`, a WAF rate limit, and scheduled tasks that keep its content index current
+- Optional Ask: the `/ask/` page, matching by meaning with Titan embeddings, and re-ranking and a summary with Claude in Amazon Bedrock
 
 ## Prerequisites
 
@@ -220,6 +221,47 @@ task:
 python manage.py rebuild_content_index
 python manage.py harvest_external_sources
 ```
+
+## Optional Ask
+
+Set `enable_ask = true` (with `enable_mcp`) to turn on Ask: the question box
+block and the `/ask/` page it posts to, which shows the content index's
+closest matches to a question as catalogue cards. It needs an image that has
+it (`FEATURE_ASK`).
+
+What it adds:
+
+- **Environment variables** on every container: `FEATURE_ASK=true`,
+  `CONTENT_INDEX_EMBEDDINGS=bedrock`, `ASK_CLAUDE=bedrock`,
+  `ASK_CLAUDE_MODEL` (`ask_claude_model`), `ASK_DAILY_TOKEN_BUDGET`
+  (`ask_daily_token_budget`, 2 million by default) and the Bedrock region
+  (`bedrock_region`, the instance's own by default).
+- **A task role policy** allowing:
+  - `bedrock:InvokeModel` on Amazon Titan Text Embeddings V2, which embeds
+    the content index (in the nightly `rebuild_content_index`) and each
+    question;
+  - `bedrock-mantle:CreateInference`, for Claude in Amazon Bedrock. Its
+    resource is `*` until the model's ARN form on that endpoint is confirmed.
+- **`/ask/summary/` on the MCP listener rule**, so the summary goes to the
+  MCP service (uvicorn) rather than the site's gunicorn.
+
+Before turning it on:
+
+- **Model access:** in the Bedrock console, check that the account can use
+  Titan Text Embeddings V2 and the Claude model in `bedrock_region`. Some
+  Claude models need a one-time access request.
+- **Where Claude runs:** Claude in Amazon Bedrock offers global and
+  geographic (EU) routing from `eu-west-2`. Confirm which one the model ID
+  routes to before questions from the public go through it.
+
+After the first apply:
+
+- **Embed the index:** run `python manage.py rebuild_content_index` once,
+  with ECS Exec or a one-off task. The nightly run keeps it current after
+  that.
+- **Switch Claude on:** in the site's admin, under **Settings > Ask**, turn on
+  re-ranking and the summary. Both are off until then, and either can be
+  turned off there at any time.
 
 ## Outputs
 
