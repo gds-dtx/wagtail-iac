@@ -232,16 +232,20 @@ it (`FEATURE_ASK`).
 What it adds:
 
 - **Environment variables** on every container: `FEATURE_ASK=true`,
-  `CONTENT_INDEX_EMBEDDINGS=bedrock`, `ASK_CLAUDE=bedrock`,
-  `ASK_CLAUDE_MODEL` (`ask_claude_model`), `ASK_DAILY_TOKEN_BUDGET`
+  `CONTENT_INDEX_EMBEDDINGS=bedrock`, `ASK_CLAUDE` (`bedrock`, or `bedrock-mantle` with
+  `ask_claude_endpoint`), `ASK_CLAUDE_MODEL` (`ask_claude_model`), `ASK_DAILY_TOKEN_BUDGET`
   (`ask_daily_token_budget`, 2 million by default) and the Bedrock region
   (`bedrock_region`, the instance's own by default).
 - **A task role policy** allowing:
   - `bedrock:InvokeModel` on Amazon Titan Text Embeddings V2, which embeds
     the content index (in the nightly `rebuild_content_index`) and each
     question;
-  - `bedrock-mantle:CreateInference`, for Claude in Amazon Bedrock. Its
-    resource is `*` until the model's ARN form on that endpoint is confirmed.
+  - for Claude on `bedrock-runtime` (`ask_claude_endpoint`, the default):
+    `bedrock:InvokeModel` on the inference profile in `ask_claude_model`
+    (`eu.anthropic.claude-opus-5-5` by default), and on the model in every
+    region the profile routes to, allowed only through that profile;
+  - for Claude on `bedrock-mantle` instead: `bedrock-mantle:CreateInference`,
+    on `*` until the model's ARN form on that endpoint is confirmed.
 - **`/ask/summary/` on the MCP listener rule**, so the summary goes to the
   MCP service (uvicorn) rather than the site's gunicorn.
 
@@ -250,9 +254,9 @@ Before turning it on:
 - **Model access:** in the Bedrock console, check that the account can use
   Titan Text Embeddings V2 and the Claude model in `bedrock_region`. Some
   Claude models need a one-time access request.
-- **Where Claude runs:** Claude in Amazon Bedrock offers global and
-  geographic (EU) routing from `eu-west-2`. Confirm which one the model ID
-  routes to before questions from the public go through it.
+- **Where Claude runs:** the default `eu.` inference profile processes each
+  request in one of the EU regions it lists. A `global.` profile would route
+  worldwide.
 
 After the first apply:
 

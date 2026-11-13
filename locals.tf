@@ -23,6 +23,9 @@ locals {
   # Ask: its summary is served by the MCP server's service, so it needs it.
   enable_ask     = var.enable_ask && local.enable_mcp
   bedrock_region = coalesce(var.bedrock_region, data.aws_region.current.region)
+  # The model an inference profile names, without the profile's prefix:
+  # "eu.anthropic.claude-opus-5-5" is "anthropic.claude-opus-5-5".
+  ask_claude_foundation_model = replace(var.ask_claude_model, "/^(eu|us|apac|jp|au|global)\\./", "")
 
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
   enable_cloudfront_waf                            = var.enable_cloudfront_waf && var.bootstrap_step >= 1
@@ -125,7 +128,7 @@ locals {
       FEATURE_ASK                    = "true"
       CONTENT_INDEX_EMBEDDINGS       = "bedrock"
       CONTENT_INDEX_EMBEDDING_REGION = local.bedrock_region
-      ASK_CLAUDE                     = "bedrock"
+      ASK_CLAUDE                     = var.ask_claude_endpoint == "bedrock-mantle" ? "bedrock-mantle" : "bedrock"
       ASK_CLAUDE_MODEL               = var.ask_claude_model
       ASK_CLAUDE_REGION              = local.bedrock_region
       ASK_DAILY_TOKEN_BUDGET         = tostring(var.ask_daily_token_budget)

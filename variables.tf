@@ -329,9 +329,20 @@ variable "enable_ask" {
 }
 
 variable "ask_claude_model" {
-  description = "The Claude model Ask calls, as Claude in Amazon Bedrock (the bedrock-mantle endpoint) names it."
+  description = "The Claude model Ask calls. On bedrock-runtime, an inference profile: the eu. profile keeps requests in EU regions. On bedrock-mantle, the model ID without a prefix (anthropic.claude-opus-5-5)."
   type        = string
-  default     = "anthropic.claude-opus-5-5"
+  default     = "eu.anthropic.claude-opus-5-5"
+}
+
+variable "ask_claude_endpoint" {
+  description = "The Bedrock endpoint Ask calls Claude on: bedrock-runtime (InvokeModel, through an inference profile) or bedrock-mantle (Claude in Amazon Bedrock), where the account and region offer the model there."
+  type        = string
+  default     = "bedrock-runtime"
+
+  validation {
+    condition     = contains(["bedrock-runtime", "bedrock-mantle"], var.ask_claude_endpoint)
+    error_message = "ask_claude_endpoint must be bedrock-runtime or bedrock-mantle."
+  }
 }
 
 variable "ask_daily_token_budget" {
