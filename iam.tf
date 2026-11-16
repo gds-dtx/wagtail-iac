@@ -136,3 +136,68 @@ resource "aws_iam_role_policy" "ecs_exec_custom" {
     ]
   })
 }
+
+# Ask: Titan Text Embeddings V2 (bedrock-runtime) for the content index and
+# each question, and Claude to re-rank and summarise. On the task role, which
+# the site, the MCP service and the scheduled tasks all use.
+#
+# Claude on bedrock-runtime goes through an inference profile (eu. by
+# default), which needs InvokeModel on the profile and on the model in each
+# region the profile routes to; the second is only allowed through that
+# profile. On bedrock-mantle it needs CreateInference instead.
+data "aws_caller_identity" "current" {}
+
+locals {
+  ask_claude_on_runtime     = var.ask_claude_endpoint == "bedrock-runtime"
+  ask_inference_profile_arn = "arn:aws:bedrock:${local.bedrock_region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.ask_claude_model}"
+}
+
+data "aws_iam_policy_document" "ask_bedrock" {
+  statement {
+    sid       = "TitanEmbeddings"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:${local.bedrock_region}::foundation-model/amazon.titan-embed-text-v2:0"]
+  }
+
+  dynamic "statement" {
+    for_each = local.ask_claude_on_runtime ? [1] : []
+    content {
+      sid       = "ClaudeInferenceProfile"
+      actions   = ["bedrock:InvokeModel"]
+      resources = [local.ask_inference_profile_arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = local.ask_claude_on_runtime ? [1] : []
+    content {
+      sid       = "ClaudeThroughTheProfile"
+      actions   = ["bedrock:InvokeModel"]
+      resources = ["arn:aws:bedrock:*::foundation-model/${local.ask_claude_foundation_model}"]
+      condition {
+        test     = "StringEquals"
+        variable = "bedrock:InferenceProfileArn"
+        values   = [local.ask_inference_profile_arn]
+      }
+    }
+  }
+
+  dynamic "statement" {
+    for_each = local.ask_claude_on_runtime ? [] : [1]
+    content {
+      # The one action, on any model: narrow it to the model's ARN once its
+      # bedrock-mantle ARN form is confirmed in the account.
+      sid       = "ClaudeInBedrock"
+      actions   = ["bedrock-mantle:CreateInference"]
+      resources = ["*"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "ask_bedrock" {
+  count = local.enable_ask ? 1 : 0
+
+  name   = "${local.task_name}-ask-bedrock-policy"
+  role   = aws_iam_role.ecs_task_role.id
+  policy = data.aws_iam_policy_document.ask_bedrock.json
+}
