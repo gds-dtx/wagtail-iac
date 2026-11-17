@@ -16,24 +16,22 @@ resource "aws_security_group" "ecs_service" {
     security_groups = [var.alb_security_group_id]
   }
 
-  # The MCP server (mcp.tf) shares this group, which the database lets in.
-  dynamic "ingress" {
-    for_each = local.enable_mcp ? [local.mcp_port] : []
-
-    content {
-      description     = "Allow MCP server HTTP from ALB"
-      from_port       = ingress.value
-      to_port         = ingress.value
-      protocol        = "tcp"
-      security_groups = [var.alb_security_group_id]
-    }
+  egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = [
+      data.aws_vpc.vpc.cidr_block,
+    ]
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port = 443
+    to_port   = 443
+    protocol  = "tcp"
+    cidr_blocks = [
+      "0.0.0.0",
+    ]
   }
 
   tags = {
