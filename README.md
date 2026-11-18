@@ -25,8 +25,7 @@ Terraform module for deploying a Wagtail application on ECS Fargate behind Cloud
 - Optional AWS WAF web ACL for CloudFront
 - Optional S3 media bucket served via a `/media/*` CloudFront behaviour (OAC)
 - Scheduled EventBridge task for `sync_external_content` (optional)
-- Optional MCP server: its own ECS service at `/mcp`, a WAF rate limit, and scheduled tasks that keep its content index current
-- Optional Ask: the `/ask/` page, matching by meaning with Titan embeddings, and re-ranking and a summary with Claude in Amazon Bedrock
+- Optional AI features: the app's ASGI service as its own ECS service (the MCP server at `/mcp`, AI search's calls to Claude at `/search/ai/*`), a WAF rate limit, scheduled tasks that keep the content index current, and Bedrock access for Titan embeddings and Claude
 
 ## Prerequisites
 
@@ -102,12 +101,15 @@ module "wagtail_iac" {
   media_bucket_name = ""    # Optional override; empty computes wagtail-<instance_id>-media-<environment_name>
   media_s3_location = "media" # Key prefix and CloudFront path pattern (/media/*)
 
-  enable_mcp            = false   # Run the app's MCP server at /mcp, with its scheduled tasks
-  mcp_task_cpu          = 256     # MCP server task CPU units (also its scheduled tasks)
-  mcp_task_memory       = 1024    # MCP server task memory in MiB
-  mcp_desired_count     = null    # MCP server tasks; null means desired_count
-  mcp_rate_limit        = 300     # Requests per client IP per 5 minutes on /mcp (needs enable_cloudfront_waf)
-  mcp_rate_limit_action = "block" # block (with a 429) or count
+  enable_ai             = false   # The AI features: the app's ASGI service, its scheduled tasks and Bedrock access
+  ai_task_cpu           = 256     # The ASGI service's task CPU units (also its scheduled tasks)
+  ai_task_memory        = 1024    # The ASGI service's task memory in MiB
+  ai_desired_count      = null    # The ASGI service's tasks; null means desired_count
+  ai_rate_limit         = 300     # Requests per client IP per 5 minutes on /mcp and /search/ai/* (needs enable_cloudfront_waf)
+  ai_rate_limit_action  = "block" # block (with a 429) or count
+  ai_claude_model       = "eu.anthropic.claude-opus-5-5" # An inference profile on bedrock-runtime
+  ai_daily_token_budget = 2000000 # Tokens Claude may use for AI search a day
+  bedrock_region        = null    # null means the instance's own region
 
   harvest_external_sources_schedule = "cron(0 6 * * ? *)"  # Fetch external entries' sources (UTC)
   rebuild_content_index_schedule    = "cron(30 6 * * ? *)" # Rebuild the content index (UTC)
@@ -167,105 +169,88 @@ Notes:
 - `enable_cloudfront_waf`: creates a CloudFront-scope web ACL with AWS managed rule groups and associates it with the distribution.
 - `waf_monitor_mode = true`: runs the managed rule groups in `count` mode so you can observe matches before enforcing. Set it to `false` to let the managed rule actions block requests.
 
-## Optional MCP server
+## Optional AI features
 
-Set `enable_mcp = true` to run the app's MCP server, which lets AI tools search
-and read the site's published content. It needs `bootstrap_step >= 2` and an
-image that has it (`manage.py run_mcp_server`).
+Set `enable_ai = true` to turn on the app's AI features (`FEATURE_AI`), which
+depend on one another: the content index, the MCP server that lets AI tools
+search and read the site's published content, and AI search. It needs
+`bootstrap_step >= 2` and an image that has them (`manage.py run_service`).
+AI search itself is chosen in the site's admin, under **Settings > Search**.
 
 What it creates:
 
-- **An ECS service**, `wagtail-<instance_id>-mcp`.
+- **An ECS service** for the app's ASGI service, `wagtail-<instance_id>-ai`.
   - **What it runs:** the same image and environment as the site, with
-    `python manage.py run_mcp_server --host 0.0.0.0 --port 8001 --workers 1`
-    on `mcp_task_cpu` and `mcp_task_memory` (256 / 1024 by default).
+    `python manage.py run_service --host 0.0.0.0 --port 8001 --workers 1`
+    on `ai_task_cpu` and `ai_task_memory` (256 / 1024 by default). It serves
+    the MCP server and AI search's matches and summary, each a call to Claude
+    that takes seconds: the site's gunicorn workers never call Claude.
   - **Why it is separate:** ECS replaces a whole task when one of its target
-    groups fails a health check, so the MCP server must not share the site's
-    task.
+    groups fails a health check, so it must not share the site's task.
   - **What it does not do:** it mounts no EFS and runs no migrations; the
     site's container still runs them.
   - **Networking:** it shares the site's security group, which the database
     lets in. That group also lets port 8001 in from the load balancer.
-- **A target group** (`mcp-<instance_id>`) with a health check of
-  `GET /mcp/health`.
-- **A listener rule** at priority 10 sending `/mcp` and `/mcp/*` to it, with
-  the same host and `X-ALB-Protection` conditions as the site's rule. The
-  site's rule moves from priority 1 to 20 so that it comes after; instances
-  without the MCP server keep priority 1. Check the plan: if Terraform replaces
-  the site's rule rather than updating it, the site answers 404 for a moment
-  during the apply.
+- **A target group** (`ai-<instance_id>`) with a health check of
+  `GET /service/health`.
+- **A listener rule** at priority 10 sending `/mcp`, `/mcp/*` and
+  `/search/ai/*` to it, with the same host and `X-ALB-Protection` conditions
+  as the site's rule. The site's rule moves from priority 1 to 20 so that it
+  comes after; instances without the AI features keep priority 1. Check the
+  plan: if Terraform replaces the site's rule rather than updating it, the site
+  answers 404 for a moment during the apply.
 - **Environment variables** on every container:
-  - `FEATURE_MCP=true`: the site writes the content index as editors publish,
-    and the MCP server will not start without it.
-  - `MCP_CLIENT_IP_HEADER=true-client-ip`, from `bootstrap_step = 3`, so the
-    app's rate limit counts each viewer rather than CloudFront's edges. The
+  - `FEATURE_AI=true`: the site writes the content index as editors publish,
+    and the ASGI service will not start without it;
+  - `CONTENT_INDEX_EMBEDDINGS=bedrock`, `AI_CLAUDE=bedrock`, `AI_CLAUDE_MODEL`
+    (`ai_claude_model`), `AI_DAILY_TOKEN_BUDGET` (`ai_daily_token_budget`, 2
+    million by default) and the Bedrock region (`bedrock_region`, the
+    instance's own by default);
+  - `CLIENT_IP_HEADER=true-client-ip`, from `bootstrap_step = 3`, so the
+    app's rate limits count each viewer rather than CloudFront's edges. The
     viewer request function sets that header from the viewer's own address.
     Before step 3 there is no function to overwrite it, so it is not trusted.
-- **A WAF rate limit** of `mcp_rate_limit` requests per client IP per five
-  minutes on URIs starting `/mcp`, answered with a 429, when
-  `enable_cloudfront_waf` is on. Its action (`mcp_rate_limit_action`) is its
+- **A task role policy** allowing `bedrock:InvokeModel`:
+  - on Amazon Titan Text Embeddings V2, which embeds the content index (in
+    the nightly `rebuild_content_index`) and each AI search question;
+  - on the Claude inference profile in `ai_claude_model`
+    (`eu.anthropic.claude-opus-5-5` by default), and on the model in every
+    region the profile routes to, allowed only through that profile.
+- **A WAF rate limit** of `ai_rate_limit` requests per client IP per five
+  minutes on URIs starting `/mcp` or `/search/ai/`, answered with a 429, when
+  `enable_cloudfront_waf` is on. Its action (`ai_rate_limit_action`) is its
   own: `waf_monitor_mode` applies to the managed rule groups only.
-- **Two scheduled tasks**, run like `sync_external_content` but from the MCP
-  server's smaller task definition:
+- **Two scheduled tasks**, run like `sync_external_content` but from the ASGI
+  service's smaller task definition:
   - `harvest_external_sources` (`harvest_external_sources_schedule`, 06:00
     UTC daily): fetches external catalogue entries' source pages into the
     index. It needs outbound https to the sources, which the tasks' subnets
     already give `sync_external_content`.
   - `rebuild_content_index` (`rebuild_content_index_schedule`, 06:30 UTC
-    daily): rebuilds the index, catching changes that no publish announces.
-
-After the first apply, fill the index once with ECS Exec on a site or MCP
-task:
-
-```bash
-python manage.py rebuild_content_index
-python manage.py harvest_external_sources
-```
-
-## Optional Ask
-
-Set `enable_ask = true` (with `enable_mcp`) to turn on Ask: the question box
-block and the `/ask/` page it posts to, which shows the content index's
-closest matches to a question as catalogue cards. It needs an image that has
-it (`FEATURE_ASK`).
-
-What it adds:
-
-- **Environment variables** on every container: `FEATURE_ASK=true`,
-  `CONTENT_INDEX_EMBEDDINGS=bedrock`, `ASK_CLAUDE` (`bedrock`, or `bedrock-mantle` with
-  `ask_claude_endpoint`), `ASK_CLAUDE_MODEL` (`ask_claude_model`), `ASK_DAILY_TOKEN_BUDGET`
-  (`ask_daily_token_budget`, 2 million by default) and the Bedrock region
-  (`bedrock_region`, the instance's own by default).
-- **A task role policy** allowing:
-  - `bedrock:InvokeModel` on Amazon Titan Text Embeddings V2, which embeds
-    the content index (in the nightly `rebuild_content_index`) and each
-    question;
-  - for Claude on `bedrock-runtime` (`ask_claude_endpoint`, the default):
-    `bedrock:InvokeModel` on the inference profile in `ask_claude_model`
-    (`eu.anthropic.claude-opus-5-5` by default), and on the model in every
-    region the profile routes to, allowed only through that profile;
-  - for Claude on `bedrock-mantle` instead: `bedrock-mantle:CreateInference`,
-    on `*` until the model's ARN form on that endpoint is confirmed.
-- **`/ask/summary/` on the MCP listener rule**, so the summary goes to the
-  MCP service (uvicorn) rather than the site's gunicorn.
+    daily): rebuilds the index, catching changes that no publish announces,
+    and embeds what is new.
 
 Before turning it on:
 
 - **Model access:** in the Bedrock console, check that the account can use
-  Titan Text Embeddings V2 and the Claude model in `bedrock_region`. Some
-  Claude models need a one-time access request.
+  Titan Text Embeddings V2 and the Claude model in `bedrock_region`.
+- **Claude's subscription:** once per account, subscribe to the Claude model
+  in the AWS Marketplace (from Bedrock's model catalogue), with a role allowed
+  to (`aws-marketplace:Subscribe`). The task role needs no Marketplace access.
 - **Where Claude runs:** the default `eu.` inference profile processes each
   request in one of the EU regions it lists. A `global.` profile would route
   worldwide.
 
 After the first apply:
 
-- **Embed the index:** run `python manage.py rebuild_content_index` once,
-  with ECS Exec or a one-off task. The nightly run keeps it current after
-  that.
-- **Switch Claude on:** in the site's admin, under **Settings > Ask**, turn on
-  re-ranking and the summary. Both are off until then, and either can be
-  turned off there at any time.
+- **Fill the index:** with ECS Exec on a site or ASGI service task, run
+  `python manage.py rebuild_content_index`, then
+  `python manage.py harvest_external_sources`. The nightly runs keep it
+  current after that.
+- **Choose AI search and switch Claude on:** in the site's admin, under
+  **Settings > Search**, choose AI search, and turn on re-ranking and the
+  summary. Both uses of Claude are off until then, and either can be turned
+  off there at any time.
 
 ## Outputs
 
@@ -273,4 +258,4 @@ After the first apply:
 - `task_name`: computed ECS task family/service name
 - `ssm_name_oidc_secret`: SSM parameter path expected for OIDC client secret
 - `media_bucket_name`: name of the S3 media bucket (empty when `enable_media_s3` is false)
-- `mcp_service_name`: name of the MCP server's ECS service (empty when `enable_mcp` is false)
+- `ai_service_name`: name of the app's ASGI service's ECS service (empty when `enable_ai` is false)

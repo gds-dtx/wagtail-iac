@@ -15,7 +15,7 @@ output "media_bucket_name" {
   value       = try(aws_s3_bucket.media[0].bucket, "")
 }
 
-output "mcp_service_name" {
-  description = "Name of the MCP server's ECS service (empty when enable_mcp is false)"
-  value       = try(aws_ecs_service.mcp[0].name, "")
+output "ai_service_name" {
+  description = "Name of the app's ASGI service's ECS service, for the AI features (empty when enable_ai is false)"
+  value       = try(aws_ecs_service.ai[0].name, "")
 }

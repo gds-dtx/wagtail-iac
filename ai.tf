@@ -1,45 +1,47 @@
-# The MCP server: the app's read-only Model Context Protocol endpoint, which
-# lets AI tools search and read the site's published content.
-#
-# With enable_ask it also serves Ask's summary at /ask/summary/: a call to
-# Claude takes seconds, which this async service waits out where the site's
-# synchronous gunicorn workers would be tied up.
+# The app's AI features (enable_ai): its ASGI service (manage.py run_service),
+# which serves the MCP server at /mcp, the read-only Model Context Protocol
+# endpoint that lets AI tools search and read the site's published content,
+# and AI search's matches and summary at /search/ai/*. Each of those calls
+# Claude and takes seconds, which this async service waits out where the
+# site's synchronous gunicorn workers would be tied up: the site never calls
+# Claude.
 #
 # Its own ECS service rather than a second container in the site's task: ECS
 # replaces a whole task when any of its target groups fails a health check,
 # so a problem here must not restart the site. It runs the same image with the
-# same environment, and is reached through the site's own listener at /mcp.
+# same environment, and is reached through the site's own listener at its
+# paths (local.ai_service_paths).
 #
-# Two daily scheduled tasks keep the content index it reads current. They run
-# from this service's task definition, which is smaller than the site's and
-# mounts no EFS.
+# Two daily scheduled tasks keep the content index current and embedded. They
+# run from this service's task definition, which is smaller than the site's
+# and mounts no EFS.
 
-resource "aws_ecs_task_definition" "mcp" {
-  count = local.enable_mcp ? 1 : 0
+resource "aws_ecs_task_definition" "ai" {
+  count = local.enable_ai ? 1 : 0
 
-  family                   = local.mcp_task_name
+  family                   = local.ai_task_name
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = var.mcp_task_cpu
-  memory                   = var.mcp_task_memory
+  cpu                      = var.ai_task_cpu
+  memory                   = var.ai_task_memory
 
   task_role_arn      = aws_iam_role.ecs_task_role.arn
   execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
   container_definitions = jsonencode([
     {
-      name  = local.mcp_task_name
+      name  = local.ai_task_name
       image = "${var.image}:${var.image_tag}"
       # One worker: each costs about 175 MiB at rest. Add tasks, not workers.
       # Migrations are left to the site's container, which runs them as it starts.
       command = [
-        "python", "manage.py", "run_mcp_server",
-        "--host", "0.0.0.0", "--port", tostring(local.mcp_port), "--workers", "1",
+        "python", "manage.py", "run_service",
+        "--host", "0.0.0.0", "--port", tostring(local.ai_port), "--workers", "1",
       ]
       portMappings = [
         {
-          containerPort = local.mcp_port
-          hostPort      = local.mcp_port
+          containerPort = local.ai_port
+          hostPort      = local.ai_port
         }
       ]
 
@@ -71,20 +73,20 @@ resource "aws_ecs_task_definition" "mcp" {
           awslogs-create-group  = "true"
           awslogs-group         = aws_cloudwatch_log_group.wagtail.name
           awslogs-region        = data.aws_region.current.region
-          awslogs-stream-prefix = "mcp"
+          awslogs-stream-prefix = "ai"
         }
       }
     }
   ])
 }
 
-resource "aws_ecs_service" "mcp" {
-  count = local.enable_mcp ? 1 : 0
+resource "aws_ecs_service" "ai" {
+  count = local.enable_ai ? 1 : 0
 
-  name            = local.mcp_task_name
+  name            = local.ai_task_name
   cluster         = data.aws_ecs_cluster.ecs_cluster.arn
-  task_definition = aws_ecs_task_definition.mcp[0].arn
-  desired_count   = local.mcp_desired_count
+  task_definition = aws_ecs_task_definition.ai[0].arn
+  desired_count   = local.ai_desired_count
   launch_type     = "FARGATE"
 
   enable_execute_command = var.enable_execute_command
@@ -100,20 +102,20 @@ resource "aws_ecs_service" "mcp" {
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.mcp[0].arn
-    container_name   = local.mcp_task_name
-    container_port   = local.mcp_port
+    target_group_arn = aws_lb_target_group.ai[0].arn
+    container_name   = local.ai_task_name
+    container_port   = local.ai_port
   }
 
   # ECS refuses a target group that no listener rule uses yet.
-  depends_on = [aws_lb_listener_rule.mcp]
+  depends_on = [aws_lb_listener_rule.ai]
 }
 
-resource "aws_lb_target_group" "mcp" {
-  count = local.enable_mcp ? 1 : 0
+resource "aws_lb_target_group" "ai" {
+  count = local.enable_ai ? 1 : 0
 
-  name        = local.mcp_target_group_name
-  port        = local.mcp_port
+  name        = local.ai_target_group_name
+  port        = local.ai_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
@@ -122,15 +124,15 @@ resource "aws_lb_target_group" "mcp" {
     create_before_destroy = false
 
     precondition {
-      condition     = length(local.mcp_target_group_name) <= 32
-      error_message = "The MCP target group name (mcp-<wagtail_instance_id>) is over 32 characters."
+      condition     = length(local.ai_target_group_name) <= 32
+      error_message = "The AI service's target group name (ai-<wagtail_instance_id>) is over 32 characters."
     }
   }
 
   health_check {
     # Answers whatever the Host header, so the load balancer can probe by IP,
     # and is open during maintenance and above the rate limit.
-    path                = "/mcp/health"
+    path                = "/service/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     interval            = 30
@@ -143,21 +145,20 @@ resource "aws_lb_target_group" "mcp" {
 
 # Ahead of the site's rule (alb.tf), which catches every path at a later
 # priority while this is enabled.
-resource "aws_lb_listener_rule" "mcp" {
-  count = local.enable_mcp ? 1 : 0
+resource "aws_lb_listener_rule" "ai" {
+  count = local.enable_ai ? 1 : 0
 
   listener_arn = aws_lb_listener.http.arn
   priority     = 10
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.mcp[0].arn
+    target_group_arn = aws_lb_target_group.ai[0].arn
   }
 
   condition {
     path_pattern {
-      # And Ask's summary, which the same service serves.
-      values = concat(["/mcp", "/mcp/*"], local.enable_ask ? ["/ask/summary/"] : [])
+      values = local.ai_service_paths
     }
   }
 
@@ -182,7 +183,7 @@ resource "aws_lb_listener_rule" "mcp" {
 # -- the content index's scheduled tasks ----------------------------------------------
 
 locals {
-  content_index_tasks = local.enable_mcp ? {
+  content_index_tasks = local.enable_ai ? {
     harvest_external_sources = {
       name        = "harvest-sources"
       description = "Fetch external catalogue entries' source pages into the content index"
@@ -190,7 +191,7 @@ locals {
     }
     rebuild_content_index = {
       name        = "rebuild-content-index"
-      description = "Rebuild the content index the MCP server reads"
+      description = "Rebuild and embed the content index the AI features read"
       schedule    = var.rebuild_content_index_schedule
     }
   } : {}
@@ -214,7 +215,7 @@ resource "aws_cloudwatch_event_target" "content_index" {
   ecs_target {
     launch_type         = "FARGATE"
     task_count          = 1
-    task_definition_arn = aws_ecs_task_definition.mcp[0].arn
+    task_definition_arn = aws_ecs_task_definition.ai[0].arn
 
     network_configuration {
       subnets          = data.aws_subnets.private_subnets.ids
@@ -226,7 +227,7 @@ resource "aws_cloudwatch_event_target" "content_index" {
   input = jsonencode({
     containerOverrides = [
       {
-        name    = local.mcp_task_name
+        name    = local.ai_task_name
         command = ["python", "manage.py", each.key]
       }
     ]

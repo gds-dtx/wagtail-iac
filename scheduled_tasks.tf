@@ -11,12 +11,12 @@ data "aws_iam_policy_document" "ecs_events_assume" {
 
 locals {
   # The role EventBridge runs scheduled tasks with: for sync_external_content,
-  # and the content index's tasks (mcp.tf), which run from the MCP server's
+  # and the content index's tasks (ai.tf), which run from the AI service's
   # task definition.
-  enable_scheduled_tasks = var.bootstrap_step >= 2 && (var.enable_sync_external_content || local.enable_mcp)
+  enable_scheduled_tasks = var.bootstrap_step >= 2 && (var.enable_sync_external_content || local.enable_ai)
   scheduled_task_definition_arns = concat(
     var.bootstrap_step >= 2 && var.enable_sync_external_content ? [aws_ecs_task_definition.ecs_task_definition[0].arn] : [],
-    local.enable_mcp ? [aws_ecs_task_definition.mcp[0].arn] : [],
+    local.enable_ai ? [aws_ecs_task_definition.ai[0].arn] : [],
   )
 }
 
