@@ -144,12 +144,14 @@ resource "aws_lb_target_group" "ai" {
 }
 
 # Ahead of the site's rule (alb.tf), which catches every path at a later
-# priority while this is enabled.
+# priority while this is enabled. 11, not 10: an instance moving from
+# enable_mcp still has the old /mcp rule at 10 until Terraform removes it,
+# which it may do after creating this one.
 resource "aws_lb_listener_rule" "ai" {
   count = local.enable_ai ? 1 : 0
 
   listener_arn = aws_lb_listener.http.arn
-  priority     = 10
+  priority     = 11
 
   action {
     type             = "forward"

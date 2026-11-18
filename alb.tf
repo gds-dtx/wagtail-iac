@@ -23,7 +23,7 @@ resource "aws_lb_listener" "http" {
 resource "aws_lb_listener_rule" "alb_rule" {
   listener_arn = aws_lb_listener.http.arn
   # Every path, so with the AI features enabled it comes after the app's ASGI
-  # service's rule (ai.tf, priority 10). Left at 1 otherwise, so other
+  # service's rule (ai.tf, priority 11). Left at 1 otherwise, so other
   # instances see no change.
   priority = local.enable_ai ? 20 : 1
 

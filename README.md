@@ -193,7 +193,7 @@ What it creates:
     lets in. That group also lets port 8001 in from the load balancer.
 - **A target group** (`ai-<instance_id>`) with a health check of
   `GET /service/health`.
-- **A listener rule** at priority 10 sending `/mcp`, `/mcp/*` and
+- **A listener rule** at priority 11 sending `/mcp`, `/mcp/*` and
   `/search/ai/*` to it, with the same host and `X-ALB-Protection` conditions
   as the site's rule. The site's rule moves from priority 1 to 20 so that it
   comes after; instances without the AI features keep priority 1. Check the
