@@ -42,7 +42,7 @@ variable "task_cpu" {
 }
 
 variable "web_concurrency" {
-  description = "Number of gunicorn workers per task (WEB_CONCURRENCY). Null derives it from task_cpu: two per vCPU, minimum one."
+  description = "Gunicorn workers per task (WEB_CONCURRENCY); null means two per vCPU of task_cpu, minimum one."
   type        = number
   default     = null
 
@@ -265,31 +265,31 @@ variable "media_s3_location" {
 }
 
 variable "enable_ai" {
-  description = "Turn on the app's AI features (FEATURE_AI), which depend on one another: the content index, the MCP server at /mcp, and AI search's matches and summary at /search/ai/*. They run as the app's ASGI service (manage.py run_service), its own ECS service, with a WAF rate limit on its paths, daily tasks that rebuild the content index and fetch external catalogue entries' sources, and the task role's access to Titan Text Embeddings V2 and Claude in Amazon Bedrock. AI search itself is chosen in the site's admin (Settings > Search), as is each use of Claude. Requires bootstrap_step >= 2, an image with FEATURE_AI, and the account's one-off AWS Marketplace subscription to Claude."
+  description = "Turns on the AI features (content index, MCP server, AI search) with their own ECS service, scheduled tasks, WAF rate limit and Bedrock access; needs bootstrap_step >= 2 and the account's AWS Marketplace subscription to Claude."
   type        = bool
   default     = false
 }
 
 variable "ai_task_cpu" {
-  description = "CPU units for the app's ASGI service's ECS task, and for the content index's scheduled tasks."
+  description = "CPU units for the AI service's task and the content index's scheduled tasks."
   type        = number
   default     = 256
 }
 
 variable "ai_task_memory" {
-  description = "Memory (MiB) for the app's ASGI service's ECS task, and for the content index's scheduled tasks. 1024 leaves room for the MCP server's 40 concurrent tool calls (about 10 MiB each, on 175 MiB at rest)."
+  description = "Memory (MiB) for the AI service's task and the content index's scheduled tasks."
   type        = number
   default     = 1024
 }
 
 variable "ai_desired_count" {
-  description = "Number of the app's ASGI service's tasks to run. Null runs as many as desired_count."
+  description = "Number of AI service tasks; null uses desired_count."
   type        = number
   default     = null
 }
 
 variable "ai_rate_limit" {
-  description = "Requests one client IP may make to the app's ASGI service's paths (/mcp, /search/ai/*) in five minutes before the CloudFront WAF refuses it with a 429. Needs enable_cloudfront_waf; the app's own per-process limits are a second line."
+  description = "Requests per client IP per five minutes to /mcp and /search/ai/* before the CloudFront WAF answers 429; needs enable_cloudfront_waf."
   type        = number
   default     = 300
 
@@ -300,7 +300,7 @@ variable "ai_rate_limit" {
 }
 
 variable "ai_rate_limit_action" {
-  description = "What the WAF does with a client over ai_rate_limit: block (with a 429), or count only. Independent of waf_monitor_mode, which applies to the managed rule groups."
+  description = "What the WAF does with a client over ai_rate_limit: block (429) or count; independent of waf_monitor_mode."
   type        = string
   default     = "block"
 
@@ -311,25 +311,25 @@ variable "ai_rate_limit_action" {
 }
 
 variable "harvest_external_sources_schedule" {
-  description = "When to fetch external catalogue entries' source pages into the content index (EventBridge schedule, UTC). Only with enable_ai."
+  description = "When to fetch external catalogue entries' sources into the content index (EventBridge schedule, UTC)."
   type        = string
   default     = "cron(0 6 * * ? *)"
 }
 
 variable "rebuild_content_index_schedule" {
-  description = "When to rebuild the content index, catching changes no publish announces, and embed what is new (EventBridge schedule, UTC). Only with enable_ai."
+  description = "When to rebuild and embed the content index (EventBridge schedule, UTC)."
   type        = string
   default     = "cron(30 6 * * ? *)"
 }
 
 variable "ai_claude_model" {
-  description = "The Claude model AI search calls on Amazon Bedrock's bedrock-runtime endpoint: an inference profile. The eu. profile keeps requests in EU regions."
+  description = "The Bedrock inference profile AI search calls Claude through; the eu. profile keeps requests in EU regions."
   type        = string
   default     = "eu.anthropic.claude-opus-5-5"
 }
 
 variable "ai_daily_token_budget" {
-  description = "Tokens Claude may use for AI search in a day (UTC), across every task. Past it, AI search shows its matches without Claude until midnight."
+  description = "Tokens Claude may use for AI search per UTC day; past it, AI search shows its matches without Claude."
   type        = number
   default     = 2000000
 
@@ -340,7 +340,7 @@ variable "ai_daily_token_budget" {
 }
 
 variable "bedrock_region" {
-  description = "The region the AI features call Amazon Bedrock in, for embeddings and Claude. Null uses the instance's own region."
+  description = "Region the AI features call Amazon Bedrock in; null uses the instance's own region."
   type        = string
   default     = null
 }

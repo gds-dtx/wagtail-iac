@@ -12,22 +12,16 @@ locals {
   enable_media_s3   = var.enable_media_s3 && var.bootstrap_step >= 1
   media_bucket_name = var.media_bucket_name != "" ? var.media_bucket_name : "${local.task_name}-media-${var.environment_name}"
 
-  # The AI features (FEATURE_AI): the content index, the MCP server and AI
-  # search, which depend on one another. The app's ASGI service is their own
-  # ECS service, behind the site's listener at its paths (ai.tf).
   enable_ai        = var.enable_ai && var.bootstrap_step >= 2
   ai_task_name     = "${local.task_name}-ai"
   ai_port          = 8001
   ai_desired_count = coalesce(var.ai_desired_count, var.desired_count)
   # Target group names are limited to 32 characters.
   ai_target_group_name = "ai-${var.wagtail_instance_id}"
-  # The paths the app's ASGI service answers: the MCP server, and AI search's
-  # matches and summary, each a call to Claude.
-  ai_service_paths = ["/mcp", "/mcp/*", "/search/ai/*"]
+  ai_service_paths     = ["/mcp", "/mcp/*", "/search/ai/*"]
 
   bedrock_region = coalesce(var.bedrock_region, data.aws_region.current.region)
-  # The model an inference profile names, without the profile's prefix:
-  # "eu.anthropic.claude-opus-5-5" is "anthropic.claude-opus-5-5".
+  # "eu.anthropic.claude-opus-5-5" -> "anthropic.claude-opus-5-5".
   ai_claude_foundation_model = replace(var.ai_claude_model, "/^(eu|us|apac|jp|au|global)\\./", "")
 
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
@@ -82,9 +76,7 @@ locals {
   database_password = sensitive(random_password.sql_master_password.result)
   database_name     = sensitive("db${random_password.sql_database_name.result}")
 
-  # Gunicorn reads WEB_CONCURRENCY as its worker count. Derived from task_cpu
-  # rather than in the image, because on Fargate os.cpu_count() reports the
-  # host's CPUs, not the task's share.
+  # From task_cpu, not the image: on Fargate os.cpu_count() reports the host's CPUs.
   web_concurrency = coalesce(var.web_concurrency, max(1, floor(var.task_cpu / 512)))
 
   wagtail_variables = merge(
@@ -114,11 +106,7 @@ locals {
       MEDIA_S3_CUSTOM_DOMAIN = var.wagtail_domain
       MEDIA_S3_LOCATION      = var.media_s3_location
     } : {},
-    # The AI features, on every container: the site writes the content index
-    # as editors publish and embeds each AI search question, the app's ASGI
-    # service runs the MCP server and calls Claude, and the scheduled tasks
-    # keep the index current and embedded. The service will not start without
-    # FEATURE_AI. AI search itself is chosen in the site's Settings > Search.
+    # On every container: the site also indexes on publish and embeds search questions.
     local.enable_ai ? {
       FEATURE_AI                     = "true"
       CONTENT_INDEX_EMBEDDINGS       = "bedrock"
@@ -128,10 +116,8 @@ locals {
       AI_CLAUDE_REGION               = local.bedrock_region
       AI_DAILY_TOKEN_BUDGET          = tostring(var.ai_daily_token_budget)
     } : {},
-    # The address every per-client rate limit counts. Only once the viewer
-    # request function is attached (bootstrap_step 3), which overwrites
-    # true-client-ip with the viewer's own address: before that CloudFront
-    # forwards whatever the client sent, and a client could pick its own.
+    # Only from bootstrap_step 3, when the viewer request function overwrites
+    # true-client-ip; before that a client could set its own and dodge rate limits.
     local.enable_ai && var.bootstrap_step >= 3 ? { CLIENT_IP_HEADER = "true-client-ip" } : {}
   )
 }

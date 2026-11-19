@@ -11,10 +11,8 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   }
 
 
-  # A rate limit on the app's ASGI service (ai.tf), per client IP, across its
-  # paths: the MCP server's and AI search's. The app counts too, but per
-  # process; this is the limit to rely on. Its action is its own, not
-  # waf_monitor_mode's, which is for the managed rule groups below.
+  # The app's own limits are per process, so this is the one to rely on.
+  # Its action ignores waf_monitor_mode, which is for the managed rule groups.
   dynamic "rule" {
     for_each = local.enable_ai ? [1] : []
 

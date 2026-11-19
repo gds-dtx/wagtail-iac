@@ -16,7 +16,7 @@ resource "aws_security_group" "ecs_service" {
     security_groups = [var.alb_security_group_id]
   }
 
-  # The app's ASGI service (ai.tf) shares this group, which the database lets in.
+  # The AI service (ai.tf) shares this group, because the database lets it in.
   dynamic "ingress" {
     for_each = local.enable_ai ? [local.ai_port] : []
 

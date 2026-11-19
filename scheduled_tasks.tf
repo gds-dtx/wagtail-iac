@@ -10,9 +10,6 @@ data "aws_iam_policy_document" "ecs_events_assume" {
 }
 
 locals {
-  # The role EventBridge runs scheduled tasks with: for sync_external_content,
-  # and the content index's tasks (ai.tf), which run from the AI service's
-  # task definition.
   enable_scheduled_tasks = var.bootstrap_step >= 2 && (var.enable_sync_external_content || local.enable_ai)
   scheduled_task_definition_arns = concat(
     var.bootstrap_step >= 2 && var.enable_sync_external_content ? [aws_ecs_task_definition.ecs_task_definition[0].arn] : [],
@@ -39,8 +36,7 @@ resource "aws_iam_role_policy" "ecs_events_run_task" {
       {
         Effect = "Allow"
         Action = ["ecs:RunTask"]
-        # Always a list. The provider compares policies semantically, so
-        # instances that previously had one ARN as a string see no diff.
+        # A list even for one ARN: policies compare semantically, so existing instances see no diff.
         Resource = local.scheduled_task_definition_arns
         Condition = {
           ArnLike = {

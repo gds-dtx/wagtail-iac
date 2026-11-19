@@ -1,20 +1,6 @@
-# The app's AI features (enable_ai): its ASGI service (manage.py run_service),
-# which serves the MCP server at /mcp, the read-only Model Context Protocol
-# endpoint that lets AI tools search and read the site's published content,
-# and AI search's matches and summary at /search/ai/*. Each of those calls
-# Claude and takes seconds, which this async service waits out where the
-# site's synchronous gunicorn workers would be tied up: the site never calls
-# Claude.
-#
-# Its own ECS service rather than a second container in the site's task: ECS
-# replaces a whole task when any of its target groups fails a health check,
-# so a problem here must not restart the site. It runs the same image with the
-# same environment, and is reached through the site's own listener at its
-# paths (local.ai_service_paths).
-#
-# Two daily scheduled tasks keep the content index current and embedded. They
-# run from this service's task definition, which is smaller than the site's
-# and mounts no EFS.
+# The app's async ASGI service makes the slow Claude calls, so they never tie up gunicorn.
+# A separate ECS service: a failing health check here must not replace the site's task.
+# Two daily scheduled tasks keep the content index current and embedded.
 
 resource "aws_ecs_task_definition" "ai" {
   count = local.enable_ai ? 1 : 0
@@ -32,8 +18,7 @@ resource "aws_ecs_task_definition" "ai" {
     {
       name  = local.ai_task_name
       image = "${var.image}:${var.image_tag}"
-      # One worker: each costs about 175 MiB at rest. Add tasks, not workers.
-      # Migrations are left to the site's container, which runs them as it starts.
+      # One worker (about 175 MiB each): add tasks, not workers. The site runs migrations.
       command = [
         "python", "manage.py", "run_service",
         "--host", "0.0.0.0", "--port", tostring(local.ai_port), "--workers", "1",
@@ -130,8 +115,7 @@ resource "aws_lb_target_group" "ai" {
   }
 
   health_check {
-    # Answers whatever the Host header, so the load balancer can probe by IP,
-    # and is open during maintenance and above the rate limit.
+    # Ignores the Host header, maintenance and rate limits, so the ALB can probe by IP.
     path                = "/service/health"
     port                = "traffic-port"
     protocol            = "HTTP"
@@ -143,10 +127,8 @@ resource "aws_lb_target_group" "ai" {
   }
 }
 
-# Ahead of the site's rule (alb.tf), which catches every path at a later
-# priority while this is enabled. 11, not 10: an instance moving from
-# enable_mcp still has the old /mcp rule at 10 until Terraform removes it,
-# which it may do after creating this one.
+# Must come before the site's catch-all rule (alb.tf). Not 10: an instance moving
+# from enable_mcp may still hold the old /mcp rule there while this is created.
 resource "aws_lb_listener_rule" "ai" {
   count = local.enable_ai ? 1 : 0
 
@@ -181,8 +163,6 @@ resource "aws_lb_listener_rule" "ai" {
     create_before_destroy = false
   }
 }
-
-# -- the content index's scheduled tasks ----------------------------------------------
 
 locals {
   content_index_tasks = local.enable_ai ? {

@@ -137,14 +137,8 @@ resource "aws_iam_role_policy" "ecs_exec_custom" {
   })
 }
 
-# The AI features: Titan Text Embeddings V2 (bedrock-runtime) for the content
-# index and each AI search question, and Claude to re-rank and summarise. On
-# the task role, which the site, the app's ASGI service and the scheduled tasks
-# all use.
-#
-# Claude goes through an inference profile (eu. by default), which needs
-# InvokeModel on the profile and on the model in each region the profile
-# routes to; the second is only allowed through that profile.
+# Claude's inference profile needs InvokeModel on the profile and on the model in every
+# region it routes to; the model is allowed only through that profile.
 data "aws_caller_identity" "current" {}
 
 locals {
