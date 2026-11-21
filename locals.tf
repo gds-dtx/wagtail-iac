@@ -12,20 +12,17 @@ locals {
   enable_media_s3   = var.enable_media_s3 && var.bootstrap_step >= 1
   media_bucket_name = var.media_bucket_name != "" ? var.media_bucket_name : "${local.task_name}-media-${var.environment_name}"
 
-  # The MCP server: its own ECS service, behind the site's listener at /mcp.
-  enable_mcp        = var.enable_mcp && var.bootstrap_step >= 2
-  mcp_task_name     = "${local.task_name}-mcp"
-  mcp_port          = 8001
-  mcp_desired_count = coalesce(var.mcp_desired_count, var.desired_count)
-  # Target group names are limited to 32 characters; "wagtail-<id>-mcp-tg" can pass that.
-  mcp_target_group_name = "mcp-${var.wagtail_instance_id}"
+  enable_ai        = var.enable_ai && var.bootstrap_step >= 2
+  ai_task_name     = "${local.task_name}-ai"
+  ai_port          = 8001
+  ai_desired_count = coalesce(var.ai_desired_count, var.desired_count)
+  # Target group names are limited to 32 characters.
+  ai_target_group_name = "ai-${var.wagtail_instance_id}"
+  ai_service_paths     = ["/mcp", "/mcp/*", "/search/ai/*"]
 
-  # Ask: its summary is served by the MCP server's service, so it needs it.
-  enable_ask     = var.enable_ask && local.enable_mcp
   bedrock_region = coalesce(var.bedrock_region, data.aws_region.current.region)
-  # The model an inference profile names, without the profile's prefix:
-  # "eu.anthropic.claude-opus-5-5" is "anthropic.claude-opus-5-5".
-  ask_claude_foundation_model = replace(var.ask_claude_model, "/^(eu|us|apac|jp|au|global)\\./", "")
+  # "eu.anthropic.claude-haiku-5-5" -> "anthropic.claude-haiku-5-5".
+  ai_claude_foundation_model = replace(var.ai_claude_model, "/^(eu|us|apac|jp|au|global)\\./", "")
 
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1
   enable_cloudfront_waf                            = var.enable_cloudfront_waf && var.bootstrap_step >= 1
@@ -79,9 +76,7 @@ locals {
   database_password = sensitive(random_password.sql_master_password.result)
   database_name     = sensitive("db${random_password.sql_database_name.result}")
 
-  # Gunicorn reads WEB_CONCURRENCY as its worker count. Derived from task_cpu
-  # rather than in the image, because on Fargate os.cpu_count() reports the
-  # host's CPUs, not the task's share.
+  # From task_cpu, not the image: on Fargate os.cpu_count() reports the host's CPUs.
   web_concurrency = coalesce(var.web_concurrency, max(1, floor(var.task_cpu / 512)))
 
   wagtail_variables = merge(
@@ -111,28 +106,19 @@ locals {
       MEDIA_S3_CUSTOM_DOMAIN = var.wagtail_domain
       MEDIA_S3_LOCATION      = var.media_s3_location
     } : {},
-    # On every container: the site writes the content index as editors publish,
-    # the MCP server reads it, and the scheduled tasks keep it current. The MCP
-    # server will not start without it.
-    local.enable_mcp ? { FEATURE_MCP = "true" } : {},
-    # The address the MCP server's rate limit counts. Only once the viewer
-    # request function is attached (bootstrap_step 3), which overwrites
-    # true-client-ip with the viewer's own address: before that CloudFront
-    # forwards whatever the client sent, and a client could pick its own.
-    local.enable_mcp && var.bootstrap_step >= 3 ? { MCP_CLIENT_IP_HEADER = "true-client-ip" } : {},
-    # Ask, on every container: the site answers /ask/ and embeds each
-    # question, the MCP service writes the summary, and the nightly rebuild
-    # embeds the content index. Its rate limits count the same header as the
-    # MCP server's (the app's CLIENT_IP_HEADER defaults to it).
-    local.enable_ask ? {
-      FEATURE_ASK                    = "true"
+    # On every container: the site also indexes on publish and embeds search questions.
+    local.enable_ai ? {
+      FEATURE_AI                     = "true"
       CONTENT_INDEX_EMBEDDINGS       = "bedrock"
       CONTENT_INDEX_EMBEDDING_REGION = local.bedrock_region
-      ASK_CLAUDE                     = var.ask_claude_endpoint == "bedrock-mantle" ? "bedrock-mantle" : "bedrock"
-      ASK_CLAUDE_MODEL               = var.ask_claude_model
-      ASK_CLAUDE_REGION              = local.bedrock_region
-      ASK_DAILY_TOKEN_BUDGET         = tostring(var.ask_daily_token_budget)
-    } : {}
+      AI_CLAUDE                      = "bedrock"
+      AI_CLAUDE_MODEL                = var.ai_claude_model
+      AI_CLAUDE_REGION               = local.bedrock_region
+      AI_DAILY_TOKEN_BUDGET          = tostring(var.ai_daily_token_budget)
+    } : {},
+    # Only from bootstrap_step 3, when the viewer request function overwrites
+    # true-client-ip; before that a client could set its own and dodge rate limits.
+    local.enable_ai && var.bootstrap_step >= 3 ? { CLIENT_IP_HEADER = "true-client-ip" } : {}
   )
 }
 
