@@ -21,7 +21,7 @@ locals {
   ai_service_paths     = ["/mcp", "/mcp/*", "/search/ai/*"]
 
   bedrock_region = coalesce(var.bedrock_region, data.aws_region.current.region)
-  # "eu.anthropic.claude-opus-5-5" -> "anthropic.claude-opus-5-5".
+  # "eu.anthropic.claude-haiku-5-5" -> "anthropic.claude-haiku-5-5".
   ai_claude_foundation_model = replace(var.ai_claude_model, "/^(eu|us|apac|jp|au|global)\\./", "")
 
   enable_cloudfront_access_log_delivery            = var.enable_cloudfront_access_logs && var.bootstrap_step >= 1

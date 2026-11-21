@@ -107,8 +107,8 @@ module "wagtail_iac" {
   ai_desired_count      = null    # AI service tasks; null means desired_count
   ai_rate_limit         = 300     # Requests per client IP per 5 minutes (needs enable_cloudfront_waf)
   ai_rate_limit_action  = "block" # block (with a 429) or count
-  ai_claude_model       = "eu.anthropic.claude-opus-5-5" # Bedrock inference profile
-  ai_daily_token_budget = 2000000 # Tokens Claude may use for AI search a day
+  ai_claude_model       = "eu.anthropic.claude-haiku-5-5" # Bedrock inference profile
+  ai_daily_token_budget = 10000000 # Tokens Claude may use for AI search a day
   bedrock_region        = null    # null means the instance's own region
 
   harvest_external_sources_schedule = "cron(0 6 * * ? *)"  # UTC

@@ -325,13 +325,13 @@ variable "rebuild_content_index_schedule" {
 variable "ai_claude_model" {
   description = "The Bedrock inference profile AI search calls Claude through; the eu. profile keeps requests in EU regions."
   type        = string
-  default     = "eu.anthropic.claude-opus-5-5"
+  default     = "eu.anthropic.claude-haiku-5-5"
 }
 
 variable "ai_daily_token_budget" {
   description = "Tokens Claude may use for AI search per UTC day; past it, AI search shows its matches without Claude."
   type        = number
-  default     = 2000000
+  default     = 10000000
 
   validation {
     condition     = var.ai_daily_token_budget >= 0
