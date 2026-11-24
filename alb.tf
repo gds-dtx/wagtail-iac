@@ -22,9 +22,9 @@ resource "aws_lb_listener" "http" {
 
 resource "aws_lb_listener_rule" "alb_rule" {
   listener_arn = aws_lb_listener.http.arn
-  # Every path, so with the MCP server enabled it comes after its /mcp rule
-  # (mcp.tf, priority 10). Left at 1 otherwise, so other instances see no change.
-  priority = local.enable_mcp ? 20 : 1
+  # A catch-all, so after ai.tf's rule (11) when AI is on.
+  # Left at 1 otherwise, so other instances see no change.
+  priority = local.enable_ai ? 20 : 1
 
   action {
     type             = "forward"

@@ -11,19 +11,18 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   }
 
 
-  # A rate limit on the MCP server (mcp.tf), per client IP. The app counts too,
-  # but per process; this is the limit to rely on. Its action is its own, not
-  # waf_monitor_mode's, which is for the managed rule groups below.
+  # The app's own limits are per process, so this is the one to rely on.
+  # Its action ignores waf_monitor_mode, which is for the managed rule groups.
   dynamic "rule" {
-    for_each = local.enable_mcp ? [1] : []
+    for_each = local.enable_ai ? [1] : []
 
     content {
-      name     = "mcp-rate-limit"
+      name     = "ai-rate-limit"
       priority = 5
 
       action {
         dynamic "block" {
-          for_each = var.mcp_rate_limit_action == "block" ? [1] : []
+          for_each = var.ai_rate_limit_action == "block" ? [1] : []
           content {
             custom_response {
               response_code = 429
@@ -32,29 +31,37 @@ resource "aws_wafv2_web_acl" "cloudfront" {
         }
 
         dynamic "count" {
-          for_each = var.mcp_rate_limit_action == "count" ? [1] : []
+          for_each = var.ai_rate_limit_action == "count" ? [1] : []
           content {}
         }
       }
 
       statement {
         rate_based_statement {
-          limit                 = var.mcp_rate_limit
+          limit                 = var.ai_rate_limit
           aggregate_key_type    = "IP"
           evaluation_window_sec = 300
 
           scope_down_statement {
-            byte_match_statement {
-              search_string         = "/mcp"
-              positional_constraint = "STARTS_WITH"
+            or_statement {
+              dynamic "statement" {
+                for_each = ["/mcp", "/search/ai/"]
 
-              field_to_match {
-                uri_path {}
-              }
+                content {
+                  byte_match_statement {
+                    search_string         = statement.value
+                    positional_constraint = "STARTS_WITH"
 
-              text_transformation {
-                priority = 0
-                type     = "LOWERCASE"
+                    field_to_match {
+                      uri_path {}
+                    }
+
+                    text_transformation {
+                      priority = 0
+                      type     = "LOWERCASE"
+                    }
+                  }
+                }
               }
             }
           }
@@ -63,7 +70,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = "cloudfront-mcpRateLimit"
+        metric_name                = "cloudfront-aiRateLimit"
         sampled_requests_enabled   = true
       }
     }
